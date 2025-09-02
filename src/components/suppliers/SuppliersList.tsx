@@ -1,9 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Trash2, CreditCard, MapPin } from 'lucide-react';
+import { Edit, Trash2, CreditCard, MapPin, Eye, UserX, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { SupplierForm } from './SupplierForm';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Supplier {
   id: string;
@@ -34,6 +37,8 @@ interface SuppliersListProps {
 export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListProps) => {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const { toast } = useToast();
 
   const formatAddress = (supplier: Supplier) => {
     const parts = [
@@ -49,7 +54,50 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
 
   const handleViewDetails = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
+    setIsEditMode(false);
     setIsDetailsOpen(true);
+  };
+
+  const handleEditSupplier = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsEditMode(true);
+    setIsDetailsOpen(true);
+  };
+
+  const handleToggleActive = async (supplier: Supplier) => {
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .update({ active: !supplier.active })
+        .eq('id', supplier.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: supplier.active ? "Fornecedor inativado" : "Fornecedor reativado",
+      });
+
+      onUpdate();
+    } catch (error) {
+      console.error('Erro ao alterar status do fornecedor:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao alterar status do fornecedor",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSupplierUpdated = () => {
+    setIsDetailsOpen(false);
+    setSelectedSupplier(null);
+    setIsEditMode(false);
+    onUpdate();
+    toast({
+      title: "Sucesso",
+      description: "Fornecedor atualizado com sucesso",
+    });
   };
 
   if (loading) {
@@ -124,15 +172,26 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
                       variant="ghost"
                       size="sm"
                       onClick={() => handleViewDetails(supplier)}
+                      title="Visualizar detalhes"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditSupplier(supplier)}
+                      title="Editar fornecedor"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleToggleActive(supplier)}
+                      className={supplier.active ? "text-destructive hover:text-destructive" : "text-green-600 hover:text-green-600"}
+                      title={supplier.active ? "Inativar fornecedor" : "Reativar fornecedor"}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {supplier.active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                     </Button>
                   </div>
                 </TableCell>
@@ -146,109 +205,120 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detalhes do Fornecedor</DialogTitle>
+            <DialogTitle>
+              {isEditMode ? 'Editar Fornecedor' : 'Detalhes do Fornecedor'}
+            </DialogTitle>
           </DialogHeader>
           
           {selectedSupplier && (
-            <div className="space-y-6">
-              {/* Dados Básicos */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold mb-3">Dados Básicos</h3>
-                  <div className="space-y-2">
+            <>
+              {isEditMode ? (
+                <SupplierForm 
+                  onSuccess={handleSupplierUpdated} 
+                  initialData={selectedSupplier}
+                />
+              ) : (
+                <div className="space-y-6">
+                  {/* Dados Básicos */}
+                  <div className="grid grid-cols-2 gap-6">
                     <div>
-                      <span className="text-sm font-medium">Nome:</span>
-                      <p className="text-sm">{selectedSupplier.name}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium">Documento:</span>
-                      <p className="text-sm">{selectedSupplier.document || 'Não informado'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium">E-mail:</span>
-                      <p className="text-sm">{selectedSupplier.email || 'Não informado'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium">Telefone:</span>
-                      <p className="text-sm">{selectedSupplier.phone || 'Não informado'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-3 flex items-center">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    Endereço
-                  </h3>
-                  <p className="text-sm">{formatAddress(selectedSupplier)}</p>
-                  {selectedSupplier.address_zip && (
-                    <p className="text-sm text-muted-foreground">CEP: {selectedSupplier.address_zip}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Observações */}
-              {selectedSupplier.observations && (
-                <div>
-                  <h3 className="font-semibold mb-3">Observações</h3>
-                  <p className="text-sm">{selectedSupplier.observations}</p>
-                </div>
-              )}
-
-              {/* Chaves PIX */}
-              {selectedSupplier.pix_keys && selectedSupplier.pix_keys.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-3 flex items-center">
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Chaves PIX
-                  </h3>
-                  <div className="space-y-1">
-                    {selectedSupplier.pix_keys.map((key, index) => (
-                      <p key={index} className="text-sm font-mono bg-muted p-2 rounded">
-                        {key}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Dados Bancários */}
-              {selectedSupplier.bank_data && Array.isArray(selectedSupplier.bank_data) && selectedSupplier.bank_data.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-3 flex items-center">
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Dados Bancários
-                  </h3>
-                  <div className="space-y-4">
-                    {selectedSupplier.bank_data.map((bank: any, index: number) => (
-                      <div key={index} className="border rounded-lg p-4">
-                        <h4 className="font-medium mb-2">Conta {index + 1}</h4>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium">Banco:</span> {bank.bank || 'Não informado'}
-                          </div>
-                          <div>
-                            <span className="font-medium">Agência:</span> {bank.agency || 'Não informado'}
-                          </div>
-                          <div>
-                            <span className="font-medium">Conta:</span> {bank.account || 'Não informado'}
-                          </div>
-                          <div>
-                            <span className="font-medium">Tipo:</span> {bank.account_type || 'Não informado'}
-                          </div>
-                          <div>
-                            <span className="font-medium">Titular:</span> {bank.holder_name || 'Não informado'}
-                          </div>
-                          <div>
-                            <span className="font-medium">CPF/CNPJ:</span> {bank.holder_document || 'Não informado'}
-                          </div>
+                      <h3 className="font-semibold mb-3">Dados Básicos</h3>
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-sm font-medium">Nome:</span>
+                          <p className="text-sm">{selectedSupplier.name}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium">Documento:</span>
+                          <p className="text-sm">{selectedSupplier.document || 'Não informado'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium">E-mail:</span>
+                          <p className="text-sm">{selectedSupplier.email || 'Não informado'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium">Telefone:</span>
+                          <p className="text-sm">{selectedSupplier.phone || 'Não informado'}</p>
                         </div>
                       </div>
-                    ))}
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold mb-3 flex items-center">
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Endereço
+                      </h3>
+                      <p className="text-sm">{formatAddress(selectedSupplier)}</p>
+                      {selectedSupplier.address_zip && (
+                        <p className="text-sm text-muted-foreground">CEP: {selectedSupplier.address_zip}</p>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Observações */}
+                  {selectedSupplier.observations && (
+                    <div>
+                      <h3 className="font-semibold mb-3">Observações</h3>
+                      <p className="text-sm">{selectedSupplier.observations}</p>
+                    </div>
+                  )}
+
+                  {/* Chaves PIX */}
+                  {selectedSupplier.pix_keys && selectedSupplier.pix_keys.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold mb-3 flex items-center">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Chaves PIX
+                      </h3>
+                      <div className="space-y-1">
+                        {selectedSupplier.pix_keys.map((key, index) => (
+                          <p key={index} className="text-sm font-mono bg-muted p-2 rounded">
+                            {key}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dados Bancários */}
+                  {selectedSupplier.bank_data && Array.isArray(selectedSupplier.bank_data) && selectedSupplier.bank_data.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold mb-3 flex items-center">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Dados Bancários
+                      </h3>
+                      <div className="space-y-4">
+                        {selectedSupplier.bank_data.map((bank: any, index: number) => (
+                          <div key={index} className="border rounded-lg p-4">
+                            <h4 className="font-medium mb-2">Conta {index + 1}</h4>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium">Banco:</span> {bank.bank || 'Não informado'}
+                              </div>
+                              <div>
+                                <span className="font-medium">Agência:</span> {bank.agency || 'Não informado'}
+                              </div>
+                              <div>
+                                <span className="font-medium">Conta:</span> {bank.account || 'Não informado'}
+                              </div>
+                              <div>
+                                <span className="font-medium">Tipo:</span> {bank.account_type || 'Não informado'}
+                              </div>
+                              <div>
+                                <span className="font-medium">Titular:</span> {bank.holder_name || 'Não informado'}
+                              </div>
+                              <div>
+                                <span className="font-medium">CPF/CNPJ:</span> {bank.holder_document || 'Não informado'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

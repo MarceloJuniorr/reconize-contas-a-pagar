@@ -40,36 +40,63 @@ interface BankData {
 
 interface SupplierFormProps {
   onSuccess: () => void;
+  initialData?: Supplier;
 }
 
-export const SupplierForm = ({ onSuccess }: SupplierFormProps) => {
-  const [pixKeys, setPixKeys] = useState<string[]>(['']);
-  const [bankData, setBankData] = useState<BankData[]>([{
-    bank: '',
-    agency: '',
-    account: '',
-    account_type: '',
-    holder_name: '',
-    holder_document: ''
-  }]);
+interface Supplier {
+  id: string;
+  name: string;
+  document: string | null;
+  email: string | null;
+  phone: string | null;
+  observations: string | null;
+  address_street: string | null;
+  address_number: string | null;
+  address_complement: string | null;
+  address_neighborhood: string | null;
+  address_city: string | null;
+  address_state: string | null;
+  address_zip: string | null;
+  pix_keys: string[] | null;
+  bank_data: any;
+  active: boolean;
+  created_at: string;
+}
+
+export const SupplierForm = ({ onSuccess, initialData }: SupplierFormProps) => {
+  const [pixKeys, setPixKeys] = useState<string[]>(
+    initialData?.pix_keys && initialData.pix_keys.length > 0 ? initialData.pix_keys : ['']
+  );
+  const [bankData, setBankData] = useState<BankData[]>(
+    initialData?.bank_data && Array.isArray(initialData.bank_data) && initialData.bank_data.length > 0 
+      ? initialData.bank_data 
+      : [{
+          bank: '',
+          agency: '',
+          account: '',
+          account_type: '',
+          holder_name: '',
+          holder_document: ''
+        }]
+  );
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<SupplierFormData>({
     resolver: zodResolver(supplierSchema),
     defaultValues: {
-      name: '',
-      document: '',
-      email: '',
-      phone: '',
-      observations: '',
-      address_street: '',
-      address_number: '',
-      address_complement: '',
-      address_neighborhood: '',
-      address_city: '',
-      address_state: '',
-      address_zip: '',
+      name: initialData?.name || '',
+      document: initialData?.document || '',
+      email: initialData?.email || '',
+      phone: initialData?.phone || '',
+      observations: initialData?.observations || '',
+      address_street: initialData?.address_street || '',
+      address_number: initialData?.address_number || '',
+      address_complement: initialData?.address_complement || '',
+      address_neighborhood: initialData?.address_neighborhood || '',
+      address_city: initialData?.address_city || '',
+      address_state: initialData?.address_state || '',
+      address_zip: initialData?.address_zip || '',
     },
   });
 
@@ -139,18 +166,23 @@ export const SupplierForm = ({ onSuccess }: SupplierFormProps) => {
         created_by: (await supabase.auth.getUser()).data.user?.id,
       };
 
-      const { error } = await supabase
-        .from('suppliers')
-        .insert([supplierData]);
+      const { error } = initialData 
+        ? await supabase
+            .from('suppliers')
+            .update(supplierData)
+            .eq('id', initialData.id)
+        : await supabase
+            .from('suppliers')
+            .insert([supplierData]);
 
       if (error) throw error;
 
       onSuccess();
     } catch (error) {
-      console.error('Erro ao cadastrar fornecedor:', error);
+      console.error('Erro ao salvar fornecedor:', error);
       toast({
         title: "Erro",
-        description: "Falha ao cadastrar fornecedor",
+        description: `Falha ao ${initialData ? 'atualizar' : 'cadastrar'} fornecedor`,
         variant: "destructive",
       });
     } finally {
@@ -478,7 +510,7 @@ export const SupplierForm = ({ onSuccess }: SupplierFormProps) => {
 
         <div className="flex justify-end gap-4">
           <Button type="submit" disabled={loading}>
-            {loading ? 'Salvando...' : 'Salvar Fornecedor'}
+            {loading ? 'Salvando...' : (initialData ? 'Atualizar Fornecedor' : 'Salvar Fornecedor')}
           </Button>
         </div>
       </form>

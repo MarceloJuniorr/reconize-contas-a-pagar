@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Suppliers from "./pages/Suppliers";
+import CostCenters from "./pages/CostCenters";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +32,7 @@ const App = () => (
               {/* Placeholder routes for future pages */}
               <Route path="accounts" element={<div className="p-4">Contas a Pagar - Em construção</div>} />
               <Route path="suppliers" element={<Suppliers />} />
-              <Route path="cost-centers" element={<div className="p-4">Centros de Custo - Em construção</div>} />
+              <Route path="cost-centers" element={<CostCenters />} />
               <Route path="users" element={
                 <ProtectedRoute requiredRole="admin">
                   <div className="p-4">Usuários - Em construção</div>

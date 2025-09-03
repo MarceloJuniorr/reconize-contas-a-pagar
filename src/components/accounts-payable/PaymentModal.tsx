@@ -8,14 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Copy, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const paymentSchema = z.object({
   payment_date: z.string().min(1, 'Data do pagamento é obrigatória'),
   amount_paid: z.string().min(1, 'Valor pago é obrigatório'),
-  payment_method: z.string().min(1, 'Método de pagamento é obrigatório'),
   notes: z.string().optional(),
 });
 
@@ -31,6 +30,7 @@ interface PaymentModalProps {
 export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModalProps) => {
   const [loading, setLoading] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
   const { toast } = useToast();
 
   const form = useForm<PaymentFormData>({
@@ -38,10 +38,53 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
     defaultValues: {
       payment_date: new Date().toISOString().split('T')[0],
       amount_paid: account?.amount?.toString() || '',
-      payment_method: '',
       notes: '',
     },
   });
+
+  // Função para copiar texto
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(label);
+      toast({
+        title: "Copiado!",
+        description: `${label} copiado para a área de transferência`,
+      });
+      setTimeout(() => setCopiedText(null), 2000);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao copiar para a área de transferência",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Função para obter o método de pagamento da conta
+  const getPaymentMethodFromAccount = () => {
+    if (account.payment_type === 'boleto') return 'boleto';
+    if (account.payment_type === 'pix') return 'pix';
+    if (account.payment_type === 'transferencia') return 'transferencia';
+    if (account.payment_type === 'cartao') {
+      return account.card_operation === 'credito' ? 'cartao_credito' : 'cartao_debito';
+    }
+    return 'dinheiro';
+  };
+
+  // Função para obter o label do método de pagamento
+  const getPaymentMethodLabel = (method: string) => {
+    const labels: { [key: string]: string } = {
+      'boleto': 'Boleto',
+      'pix': 'PIX',
+      'transferencia': 'Transferência',
+      'cartao_credito': 'Cartão de Crédito',
+      'cartao_debito': 'Cartão de Débito',
+      'dinheiro': 'Dinheiro',
+      'cheque': 'Cheque'
+    };
+    return labels[method] || method;
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -107,7 +150,7 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
           account_id: account.id,
           payment_date: data.payment_date,
           amount_paid: parseFloat(data.amount_paid.replace(',', '.')),
-          payment_method: data.payment_method,
+          payment_method: getPaymentMethodFromAccount(),
           notes: data.notes || null,
           attachment_url: attachmentUrl,
           paid_by: (await supabase.auth.getUser()).data.user?.id,
@@ -168,6 +211,60 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
                 <div>
                   <span className="font-medium">Vencimento:</span> {new Date(account.due_date).toLocaleDateString('pt-BR')}
                 </div>
+                <div className="col-span-2">
+                  <span className="font-medium">Método de Pagamento:</span> {getPaymentMethodLabel(getPaymentMethodFromAccount())}
+                </div>
+                
+                {/* Dados para cópia - Boleto */}
+                {account.payment_type === 'boleto' && account.boleto_barcode && (
+                  <div className="col-span-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Linha Digitável:</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(account.boleto_barcode, 'Linha digitável')}
+                        className="ml-2"
+                      >
+                        {copiedText === 'Linha digitável' ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <div className="text-xs text-gray-600 break-all mt-1">{account.boleto_barcode}</div>
+                  </div>
+                )}
+
+                {/* Dados para cópia - PIX */}
+                {account.payment_type === 'pix' && account.pix_key && (
+                  <div className="col-span-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Chave PIX:</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(account.pix_key, 'Chave PIX')}
+                        className="ml-2"
+                      >
+                        {copiedText === 'Chave PIX' ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <div className="text-xs text-gray-600 break-all mt-1">{account.pix_key}</div>
+                    {account.pix_receiver_name && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        <span className="font-medium">Favorecido:</span> {account.pix_receiver_name}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -209,33 +306,6 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
                     )}
                   />
                 </div>
-
-                <FormField
-                  control={form.control}
-                  name="payment_method"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Método de Pagamento *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o método" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                          <SelectItem value="pix">PIX</SelectItem>
-                          <SelectItem value="transferencia">Transferência</SelectItem>
-                          <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
-                          <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
-                          <SelectItem value="boleto">Boleto</SelectItem>
-                          <SelectItem value="cheque">Cheque</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}

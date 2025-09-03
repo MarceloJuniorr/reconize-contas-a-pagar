@@ -47,8 +47,8 @@ interface Account {
 interface AccountsListProps {
   accounts: Account[];
   loading: boolean;
-  onUpdate: (customDateFilter?: Date) => void;
-  onDateFilterChange?: (customDateFilter?: Date) => void;
+  onUpdate: (customDateFromFilter?: Date, customDateUntilFilter?: Date) => void;
+  onDateFilterChange?: (customDateFromFilter?: Date, customDateUntilFilter?: Date) => void;
 }
 
 interface Filters {

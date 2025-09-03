@@ -34,21 +34,38 @@ const AccountsPayable = () => {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const fetchAccounts = async (customDateFilter?: Date) => {
+  const fetchAccounts = async (customDateFrom?: Date, customDateUntil?: Date) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const nextWeek = customDateFilter ? customDateFilter.toISOString().split('T')[0] : 
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-      const { data, error } = await supabase
+      console.log('fetchAccounts called with:', { customDateFrom, customDateUntil });
+      
+      let query = supabase
         .from('accounts_payable')
         .select(`
           *,
           suppliers(name),
           cost_centers(name, code)
-        `)
-        .or(`due_date.lt.${today},and(due_date.gte.${today},due_date.lte.${nextWeek})`)
-        .order('due_date', { ascending: true });
+        `);
+
+      // Se não há filtros customizados, usar o filtro padrão (hoje até próxima semana)
+      if (!customDateFrom && !customDateUntil) {
+        const today = new Date().toISOString().split('T')[0];
+        const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        query = query.or(`due_date.lt.${today},and(due_date.gte.${today},due_date.lte.${nextWeek})`);
+      } else {
+        // Aplicar filtros customizados se fornecidos
+        if (customDateFrom) {
+          const fromDateStr = customDateFrom.toISOString().split('T')[0];
+          console.log('Filtering from date:', fromDateStr);
+          query = query.gte('due_date', fromDateStr);
+        }
+        if (customDateUntil) {
+          const untilDateStr = customDateUntil.toISOString().split('T')[0];
+          console.log('Filtering until date:', untilDateStr);
+          query = query.lte('due_date', untilDateStr);
+        }
+      }
+
+      const { data, error } = await query.order('due_date', { ascending: true });
 
       if (error) throw error;
       setAccounts(data || []);
@@ -287,8 +304,11 @@ const AccountsPayable = () => {
           <AccountsList 
             accounts={accounts} 
             loading={loading} 
-            onUpdate={fetchAccounts}
-            onDateFilterChange={fetchAccounts}
+            onUpdate={() => fetchAccounts()}
+            onDateFilterChange={(fromDate, untilDate) => {
+              console.log('Date filter changed:', { fromDate, untilDate });
+              fetchAccounts(fromDate, untilDate);
+            }}
           />
         </CardContent>
       </Card>

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, DollarSign, AlertTriangle, CheckCircle, Calendar } from 'lucide-react';
+import { Plus, DollarSign, AlertTriangle, CheckCircle, Calendar, Upload } from 'lucide-react';
 import { AccountForm } from '@/components/accounts-payable/AccountForm';
 import { AccountsList } from '@/components/accounts-payable/AccountsList';
+import { CSVImport } from '@/components/accounts-payable/CSVImport';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -25,6 +27,7 @@ const AccountsPayable = () => {
   });
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchAccounts = async (customDateFilter?: Date) => {
@@ -117,6 +120,12 @@ const AccountsPayable = () => {
     });
   };
 
+  const handleImportSuccess = () => {
+    setIsImportDialogOpen(false);
+    fetchAccounts();
+    fetchStats();
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -134,20 +143,37 @@ const AccountsPayable = () => {
           </p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Conta
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Cadastrar Nova Conta a Pagar</DialogTitle>
-            </DialogHeader>
-            <AccountForm onSuccess={handleAccountCreated} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Conta
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Cadastrar Nova Conta a Pagar</DialogTitle>
+              </DialogHeader>
+              <AccountForm onSuccess={handleAccountCreated} />
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Upload className="h-4 w-4 mr-2" />
+                Importar CSV
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Importar Contas via CSV</DialogTitle>
+              </DialogHeader>
+              <CSVImport onSuccess={handleImportSuccess} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Dashboard Cards */}

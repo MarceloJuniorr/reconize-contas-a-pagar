@@ -27,8 +27,12 @@ const AccountsPayable = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = async (customDateFilter?: Date) => {
     try {
+      const today = new Date().toISOString().split('T')[0];
+      const nextWeek = customDateFilter ? customDateFilter.toISOString().split('T')[0] : 
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
       const { data, error } = await supabase
         .from('accounts_payable')
         .select(`
@@ -36,7 +40,8 @@ const AccountsPayable = () => {
           suppliers(name),
           cost_centers(name, code)
         `)
-        .order('created_at', { ascending: false });
+        .or(`due_date.lt.${today},and(due_date.gte.${today},due_date.lte.${nextWeek})`)
+        .order('due_date', { ascending: true });
 
       if (error) throw error;
       setAccounts(data || []);
@@ -211,10 +216,8 @@ const AccountsPayable = () => {
           <AccountsList 
             accounts={accounts} 
             loading={loading} 
-            onUpdate={() => {
-              fetchAccounts();
-              fetchStats();
-            }} 
+            onUpdate={fetchAccounts}
+            onDateFilterChange={fetchAccounts}
           />
         </CardContent>
       </Card>

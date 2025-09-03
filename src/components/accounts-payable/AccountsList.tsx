@@ -36,7 +36,8 @@ interface Account {
 interface AccountsListProps {
   accounts: Account[];
   loading: boolean;
-  onUpdate: () => void;
+  onUpdate: (customDateFilter?: Date) => void;
+  onDateFilterChange?: (customDateFilter?: Date) => void;
 }
 
 interface Filters {
@@ -47,7 +48,7 @@ interface Filters {
   dueDateUntil: Date | undefined;
 }
 
-export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps) => {
+export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }: AccountsListProps) => {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -59,7 +60,7 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
     costCenter: 'all',
     paymentType: 'all',
     status: 'all',
-    dueDateUntil: undefined,
+    dueDateUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias por padrão
   });
   const { toast } = useToast();
   const { hasRole } = useAuth();
@@ -97,13 +98,17 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
   }, [accounts, filters]);
 
   const clearFilters = () => {
-    setFilters({
+    const newFilters = {
       supplier: 'all',
       costCenter: 'all',
       paymentType: 'all',
       status: 'all',
-      dueDateUntil: undefined,
-    });
+      dueDateUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias por padrão
+    };
+    setFilters(newFilters);
+    if (onDateFilterChange) {
+      onDateFilterChange(newFilters.dueDateUntil);
+    }
   };
 
   const handleViewDetails = (account: Account) => {
@@ -282,7 +287,8 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
               <Filter className="h-4 w-4" />
               Filtros
             </Button>
-          {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || filters.dueDateUntil) && (
+          {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || 
+             (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
             <Button
               variant="ghost"
               size="sm"
@@ -446,16 +452,17 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
             <Filter className="h-4 w-4" />
             Filtros
           </Button>
-            {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || filters.dueDateUntil) && (
+            {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || 
+               (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={clearFilters}
                 className="text-muted-foreground"
               >
-              Limpar filtros
-            </Button>
-          )}
+                Limpar filtros
+              </Button>
+            )}
         </div>
 
         {showFilters && (
@@ -569,7 +576,13 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                       <Calendar
                         mode="single"
                         selected={filters.dueDateUntil}
-                        onSelect={(date) => setFilters(prev => ({ ...prev, dueDateUntil: date }))}
+                        onSelect={(date) => {
+                          const newDate = date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                          setFilters(prev => ({ ...prev, dueDateUntil: newDate }));
+                          if (onDateFilterChange) {
+                            onDateFilterChange(newDate);
+                          }
+                        }}
                         initialFocus
                         className={cn("p-3 pointer-events-auto")}
                       />
@@ -584,6 +597,8 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
         {/* Contador de resultados */}
         <div className="text-sm text-muted-foreground">
           Mostrando {filteredAccounts.length} de {accounts.length} contas
+          <br />
+          <span className="text-xs">Por padrão, exibindo apenas contas vencidas e que vencem nos próximos 7 dias</span>
         </div>
       </div>
 

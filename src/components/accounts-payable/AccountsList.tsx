@@ -61,8 +61,8 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     costCenter: 'all',
     paymentType: 'all',
     status: 'all',
-    dueDateFrom: new Date(), // Data atual como padrão
-    dueDateUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias por padrão
+    dueDateFrom: undefined,
+    dueDateUntil: undefined,
   });
   const { toast } = useToast();
   const { hasRole } = useAuth();
@@ -92,23 +92,24 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
       if (filters.status !== 'all' && account.status !== filters.status) {
         return false;
       }
-      const accountDate = new Date(account.due_date);
-      if (filters.dueDateFrom) {
-        const fromDate = new Date(filters.dueDateFrom);
-        fromDate.setHours(0, 0, 0, 0);
-        const compareDate = new Date(accountDate);
-        compareDate.setHours(0, 0, 0, 0);
-        if (compareDate < fromDate) {
-          return false;
+      if (filters.dueDateFrom || filters.dueDateUntil) {
+        const accountDate = new Date(account.due_date);
+        accountDate.setHours(0, 0, 0, 0);
+        
+        if (filters.dueDateFrom) {
+          const fromDate = new Date(filters.dueDateFrom);
+          fromDate.setHours(0, 0, 0, 0);
+          if (accountDate < fromDate) {
+            return false;
+          }
         }
-      }
-      if (filters.dueDateUntil) {
-        const untilDate = new Date(filters.dueDateUntil);
-        untilDate.setHours(23, 59, 59, 999);
-        const compareDate = new Date(accountDate);
-        compareDate.setHours(0, 0, 0, 0);
-        if (compareDate > untilDate) {
-          return false;
+        
+        if (filters.dueDateUntil) {
+          const untilDate = new Date(filters.dueDateUntil);
+          untilDate.setHours(0, 0, 0, 0);
+          if (accountDate > untilDate) {
+            return false;
+          }
         }
       }
       return true;
@@ -155,12 +156,12 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
       costCenter: 'all',
       paymentType: 'all',
       status: 'all',
-      dueDateFrom: new Date(), // Data atual como padrão
-      dueDateUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias por padrão
+      dueDateFrom: undefined,
+      dueDateUntil: undefined,
     };
     setFilters(newFilters);
     if (onDateFilterChange) {
-      onDateFilterChange(newFilters.dueDateUntil);
+      onDateFilterChange(undefined);
     }
   };
 
@@ -269,15 +270,14 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
   const getStatusColor = (status: string, dueDate: string) => {
     if (status === 'em_aberto') {
       const today = new Date();
-      const due = new Date(dueDate);
-      
-      // Normalizar as datas para comparação (zerando horário)
       today.setHours(0, 0, 0, 0);
+      
+      const due = new Date(dueDate);
       due.setHours(0, 0, 0, 0);
       
       if (due.getTime() === today.getTime()) {
         return 'warning'; // Vence hoje - amarelo
-      } else if (due < today) {
+      } else if (due.getTime() < today.getTime()) {
         return 'destructive'; // Vencida - vermelho
       }
       return 'default'; // Em aberto - azul
@@ -296,15 +296,14 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
   const getStatusLabel = (status: string, dueDate: string) => {
     if (status === 'em_aberto') {
       const today = new Date();
-      const due = new Date(dueDate);
-      
-      // Normalizar as datas para comparação (zerando horário)
       today.setHours(0, 0, 0, 0);
+      
+      const due = new Date(dueDate);
       due.setHours(0, 0, 0, 0);
       
       if (due.getTime() === today.getTime()) {
         return 'Vence Hoje';
-      } else if (due < today) {
+      } else if (due.getTime() < today.getTime()) {
         return 'Vencida';
       }
       return 'Em Aberto';

@@ -338,7 +338,10 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     const todayStr = today.getFullYear() + '-' + 
       String(today.getMonth() + 1).padStart(2, '0') + '-' + 
       String(today.getDate()).padStart(2, '0');
-    return dueDate < todayStr;
+    
+    const result = dueDate < todayStr;
+    console.log(`isOverdue debug: dueDate=${dueDate}, todayStr=${todayStr}, result=${result}`);
+    return result;
   };
 
   if (loading) {

@@ -93,11 +93,23 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
         return false;
       }
       const accountDate = new Date(account.due_date);
-      if (filters.dueDateFrom && accountDate < filters.dueDateFrom) {
-        return false;
+      if (filters.dueDateFrom) {
+        const fromDate = new Date(filters.dueDateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        const compareDate = new Date(accountDate);
+        compareDate.setHours(0, 0, 0, 0);
+        if (compareDate < fromDate) {
+          return false;
+        }
       }
-      if (filters.dueDateUntil && accountDate > filters.dueDateUntil) {
-        return false;
+      if (filters.dueDateUntil) {
+        const untilDate = new Date(filters.dueDateUntil);
+        untilDate.setHours(23, 59, 59, 999);
+        const compareDate = new Date(accountDate);
+        compareDate.setHours(0, 0, 0, 0);
+        if (compareDate > untilDate) {
+          return false;
+        }
       }
       return true;
     });
@@ -254,10 +266,24 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, dueDate: string) => {
+    if (status === 'em_aberto') {
+      const today = new Date();
+      const due = new Date(dueDate);
+      
+      // Normalizar as datas para comparação (zerando horário)
+      today.setHours(0, 0, 0, 0);
+      due.setHours(0, 0, 0, 0);
+      
+      if (due.getTime() === today.getTime()) {
+        return 'warning'; // Vence hoje - amarelo
+      } else if (due < today) {
+        return 'destructive'; // Vencida - vermelho
+      }
+      return 'default'; // Em aberto - azul
+    }
+    
     switch (status) {
-      case 'em_aberto':
-        return 'default';
       case 'pago':
         return 'success';
       case 'cancelado':
@@ -267,10 +293,24 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: string, dueDate: string) => {
+    if (status === 'em_aberto') {
+      const today = new Date();
+      const due = new Date(dueDate);
+      
+      // Normalizar as datas para comparação (zerando horário)
+      today.setHours(0, 0, 0, 0);
+      due.setHours(0, 0, 0, 0);
+      
+      if (due.getTime() === today.getTime()) {
+        return 'Vence Hoje';
+      } else if (due < today) {
+        return 'Vencida';
+      }
+      return 'Em Aberto';
+    }
+    
     switch (status) {
-      case 'em_aberto':
-        return 'Em Aberto';
       case 'pago':
         return 'Pago';
       case 'cancelado':
@@ -430,10 +470,10 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      {filterOptions.statuses.map(status => (
-                        <SelectItem key={status} value={status}>
-                          {getStatusLabel(status)}
-                        </SelectItem>
+                       {filterOptions.statuses.map(status => (
+                         <SelectItem key={status} value={status}>
+                           {status === 'em_aberto' ? 'Em Aberto' : status === 'pago' ? 'Pago' : status === 'cancelado' ? 'Cancelado' : status}
+                         </SelectItem>
                       ))}
                     </SelectContent>
                     </Select>
@@ -667,10 +707,10 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      {filterOptions.statuses.map(status => (
-                        <SelectItem key={status} value={status}>
-                          {getStatusLabel(status)}
-                        </SelectItem>
+                       {filterOptions.statuses.map(status => (
+                         <SelectItem key={status} value={status}>
+                           {status === 'em_aberto' ? 'Em Aberto' : status === 'pago' ? 'Pago' : status === 'cancelado' ? 'Cancelado' : status}
+                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -880,11 +920,11 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     {formatDate(account.due_date)}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <Badge variant={getStatusColor(account.status) as any}>
-                    {getStatusLabel(account.status)}
-                  </Badge>
-                </TableCell>
+                 <TableCell>
+                   <Badge variant={getStatusColor(account.status, account.due_date) as any}>
+                     {getStatusLabel(account.status, account.due_date)}
+                   </Badge>
+                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Button
@@ -1011,11 +1051,11 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                         </div>
                         <div>
                           <span className="text-sm font-medium text-muted-foreground">Status:</span>
-                          <p className="text-base">
-                            <Badge variant={getStatusColor(selectedAccount.status) as any}>
-                              {getStatusLabel(selectedAccount.status)}
-                            </Badge>
-                          </p>
+                           <p className="text-base">
+                             <Badge variant={getStatusColor(selectedAccount.status, selectedAccount.due_date) as any}>
+                               {getStatusLabel(selectedAccount.status, selectedAccount.due_date)}
+                             </Badge>
+                           </p>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-muted-foreground">Criado em:</span>

@@ -25,7 +25,7 @@ const UserManagement = () => {
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('');
   const { toast } = useToast();
-  const { hasRole } = useAuth();
+  const { hasRole, user: currentUser } = useAuth();
 
   useEffect(() => {
     if (hasRole('admin')) {
@@ -120,6 +120,16 @@ const UserManagement = () => {
   };
 
   const handleRemoveRole = async (userId: string, role: string) => {
+    // Impedir que o admin remova seu próprio papel de administrador
+    if (userId === currentUser?.id && role === 'admin') {
+      toast({
+        title: "Ação não permitida",
+        description: "Você não pode remover seu próprio papel de administrador",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('user_roles')
@@ -304,13 +314,16 @@ const UserManagement = () => {
                           >
                             {getRoleIcon(role)}
                             {getRoleLabel(role)}
-                            <button
-                              onClick={() => handleRemoveRole(user.id, role)}
-                              className="ml-1 hover:bg-black/10 rounded-full p-0.5"
-                              title="Remover papel"
-                            >
-                              ×
-                            </button>
+                            {/* Não mostrar botão de remover se for o próprio admin tentando remover seu papel */}
+                            {!(user.id === currentUser?.id && role === 'admin') && (
+                              <button
+                                onClick={() => handleRemoveRole(user.id, role)}
+                                className="ml-1 hover:bg-black/10 rounded-full p-0.5"
+                                title="Remover papel"
+                              >
+                                ×
+                              </button>
+                            )}
                           </Badge>
                         ))}
                       </div>

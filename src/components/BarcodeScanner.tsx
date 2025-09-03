@@ -14,135 +14,65 @@ interface BarcodeScannerProps {
 
 export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps) => {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [permissionState, setPermissionState] = useState<'waiting' | 'loading' | 'granted' | 'denied' | 'error' | 'https-required'>('waiting');
+  const [scannerState, setScannerState] = useState<'loading' | 'ready' | 'error' | 'https-required'>('loading');
   const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
-      checkEnvironment();
+      // Pequeno delay para garantir que o DOM está pronto
+      const timer = setTimeout(() => {
+        checkEnvironmentAndInit();
+      }, 100);
+      return () => clearTimeout(timer);
     } else {
       cleanup();
     }
-
-    return () => cleanup();
   }, [isOpen]);
 
-  const checkEnvironment = () => {
+  const checkEnvironmentAndInit = () => {
+    console.log('Verificando ambiente e inicializando scanner...');
+    console.log('User Agent:', navigator.userAgent);
+    console.log('Protocolo:', location.protocol);
+    console.log('Hostname:', location.hostname);
+
     // Verificar se está em HTTPS (obrigatório para câmera no mobile)
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       console.error('HTTPS é obrigatório para câmera no mobile');
-      setPermissionState('https-required');
+      setScannerState('https-required');
       return;
     }
 
     // Verificar suporte do navegador
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       console.error('MediaDevices não suportado');
-      setPermissionState('error');
+      setScannerState('error');
       return;
     }
 
-    // Pronto para solicitar permissão quando usuário clicar
-    setPermissionState('waiting');
+    // Inicializar scanner diretamente - deixar a biblioteca gerenciar as permissões
+    initializeScanner();
   };
 
   const cleanup = () => {
+    console.log('Limpando scanner...');
     if (scannerRef.current) {
       scannerRef.current.clear().catch(console.error);
       scannerRef.current = null;
     }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
   };
 
-  const requestCameraPermission = async () => {
-    console.log('Iniciando solicitação de permissão da câmera...');
-    console.log('User Agent:', navigator.userAgent);
-    console.log('Protocolo:', location.protocol);
-    console.log('Hostname:', location.hostname);
-    
+  const initializeScanner = () => {
     try {
-      setPermissionState('loading');
-      
-      // Verificar se o navegador suporta câmera
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error('MediaDevices não suportado pelo navegador');
-        setPermissionState('error');
+      // Verificar se o elemento DOM existe
+      const readerElement = document.getElementById("barcode-reader");
+      if (!readerElement) {
+        console.log('Elemento barcode-reader não encontrado, aguardando...');
+        setTimeout(() => initializeScanner(), 200);
         return;
       }
 
-      console.log('Solicitando acesso à câmera...');
+      console.log('Inicializando HTML5QrcodeScanner...');
       
-      // Tentar câmera traseira primeiro, fallback para frontal
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: { exact: 'environment' } // Câmera traseira obrigatória
-          } 
-        });
-        console.log('Câmera traseira obtida com sucesso');
-      } catch (envError) {
-        console.warn('Câmera traseira não disponível, tentando qualquer câmera:', envError);
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true 
-        });
-        console.log('Câmera alternativa obtida com sucesso');
-      }
-      
-      streamRef.current = stream;
-      setPermissionState('granted');
-      console.log('Permissão concedida, inicializando scanner...');
-      
-      // Parar o stream temporário - o html5-qrcode criará o próprio
-      stream.getTracks().forEach(track => track.stop());
-      
-      // Inicializar scanner após permissão concedida
-      setTimeout(() => {
-        initializeScanner();
-      }, 100);
-      
-    } catch (error: any) {
-      console.error('Erro detalhado de permissão da câmera:', error);
-      console.error('Nome do erro:', error.name);
-      console.error('Mensagem do erro:', error.message);
-      
-      if (error.name === 'NotAllowedError') {
-        console.error('Permissão negada pelo usuário');
-        setPermissionState('denied');
-      } else if (error.name === 'NotFoundError') {
-        console.error('Câmera não encontrada no dispositivo');
-        setPermissionState('error');
-        toast({
-          title: "Câmera não encontrada",
-          description: "Seu dispositivo não possui uma câmera disponível.",
-          variant: "destructive",
-        });
-      } else if (error.name === 'NotReadableError') {
-        console.error('Câmera já está sendo usada por outro aplicativo');
-        setPermissionState('error');
-        toast({
-          title: "Câmera em uso",
-          description: "A câmera está sendo usada por outro aplicativo.",
-          variant: "destructive",
-        });
-      } else {
-        console.error('Erro desconhecido:', error);
-        setPermissionState('error');
-        toast({
-          title: "Erro de câmera",
-          description: "Não foi possível acessar a câmera.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
-  const initializeScanner = async () => {
-    try {
       const scanner = new Html5QrcodeScanner(
         "barcode-reader",
         {
@@ -159,26 +89,37 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
           ],
           showTorchButtonIfSupported: true,
           showZoomSliderIfSupported: true,
+          // Configurações para otimizar para mobile
+          rememberLastUsedCamera: false,
         },
-        false
+        false // verbose = false
       );
 
       scanner.render(
         (decodedText) => {
+          console.log('Código escaneado:', decodedText);
           handleScanSuccess(decodedText);
         },
         (errorMessage) => {
-          // Silenciar erros de scan contínuo
-          if (!errorMessage.includes('NotFound')) {
+          // Silenciar erros de scan contínuo (normal quando não há código na tela)
+          if (!errorMessage.includes('NotFound') && !errorMessage.includes('No QR code found')) {
             console.warn('Scan error:', errorMessage);
           }
         }
       );
 
       scannerRef.current = scanner;
+      setScannerState('ready');
+      console.log('Scanner inicializado com sucesso');
+
     } catch (error) {
       console.error('Erro ao inicializar scanner:', error);
-      setPermissionState('error');
+      setScannerState('error');
+      toast({
+        title: "Erro ao inicializar câmera",
+        description: "Não foi possível inicializar o scanner. Verifique as permissões da câmera.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -210,31 +151,36 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
 
   const handleClose = () => {
     cleanup();
-    setPermissionState('waiting');
+    setScannerState('loading');
     onClose();
   };
 
+  const retryScanner = () => {
+    console.log('Tentando novamente...');
+    setScannerState('loading');
+    cleanup();
+    setTimeout(() => {
+      checkEnvironmentAndInit();
+    }, 500);
+  };
+
   const renderContent = () => {
-    switch (permissionState) {
-      case 'waiting':
+    switch (scannerState) {
+      case 'loading':
         return (
           <Card>
             <CardContent className="p-8">
               <div className="text-center space-y-4">
-                <Camera className="h-12 w-12 mx-auto text-primary" />
+                <RefreshCw className="h-12 w-12 mx-auto animate-spin text-primary" />
                 <div>
-                  <h3 className="font-medium">Iniciar Scanner</h3>
+                  <h3 className="font-medium">Inicializando câmera</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Clique no botão abaixo para solicitar acesso à câmera
+                    Preparando o scanner de código de barras...
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    É necessário permitir o acesso para escanear códigos de barras
+                    Você pode ser solicitado a permitir o acesso à câmera
                   </p>
                 </div>
-                <Button onClick={requestCameraPermission} className="w-full">
-                  <Camera className="h-4 w-4 mr-2" />
-                  Solicitar Acesso à Câmera
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -260,50 +206,6 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
           </Card>
         );
 
-      case 'loading':
-        return (
-          <Card>
-            <CardContent className="p-8">
-              <div className="text-center space-y-4">
-                <RefreshCw className="h-12 w-12 mx-auto animate-spin text-primary" />
-                <div>
-                  <h3 className="font-medium">Solicitando permissão</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Permita o acesso à câmera na janela que apareceu
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    No mobile, o popup pode aparecer na parte superior da tela
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-
-      case 'denied':
-        return (
-          <Card>
-            <CardContent className="p-8">
-              <div className="text-center space-y-4">
-                <AlertCircle className="h-12 w-12 mx-auto text-destructive" />
-                <div>
-                  <h3 className="font-medium">Permissão negada</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    É necessário permitir o acesso à câmera para escanear códigos de barras
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Você pode habilitar nas configurações do navegador ou tentar novamente
-                  </p>
-                </div>
-                <Button onClick={requestCameraPermission} className="w-full">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Tentar Novamente
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-
       case 'error':
         return (
           <Card>
@@ -315,8 +217,11 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
                   <p className="text-sm text-muted-foreground mt-1">
                     Não foi possível acessar a câmera do dispositivo
                   </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Verifique se permitiu o acesso à câmera nas configurações do navegador
+                  </p>
                 </div>
-                <Button onClick={requestCameraPermission} variant="outline" className="w-full">
+                <Button onClick={retryScanner} variant="outline" className="w-full">
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Tentar Novamente
                 </Button>
@@ -325,7 +230,7 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
           </Card>
         );
 
-      case 'granted':
+      case 'ready':
         return (
           <Card>
             <CardContent className="p-4">
@@ -371,11 +276,13 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
         <div className="space-y-4">
           {renderContent()}
 
-          <div className="flex justify-center gap-2">
-            <Button variant="outline" onClick={handleClose} className="flex-1">
-              Cancelar
-            </Button>
-          </div>
+          {scannerState !== 'ready' && (
+            <div className="flex justify-center gap-2">
+              <Button variant="outline" onClick={handleClose} className="flex-1">
+                Cancelar
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

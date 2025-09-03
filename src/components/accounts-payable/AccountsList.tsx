@@ -45,6 +45,7 @@ interface Filters {
   costCenter: string;
   paymentType: string;
   status: string;
+  dueDateFrom: Date | undefined;
   dueDateUntil: Date | undefined;
 }
 
@@ -60,6 +61,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     costCenter: 'all',
     paymentType: 'all',
     status: 'all',
+    dueDateFrom: undefined, // Sem filtro de início por padrão para incluir vencidas
     dueDateUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias por padrão
   });
   const { toast } = useToast();
@@ -90,7 +92,11 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
       if (filters.status !== 'all' && account.status !== filters.status) {
         return false;
       }
-      if (filters.dueDateUntil && new Date(account.due_date) > filters.dueDateUntil) {
+      const accountDate = new Date(account.due_date);
+      if (filters.dueDateFrom && accountDate < filters.dueDateFrom) {
+        return false;
+      }
+      if (filters.dueDateUntil && accountDate > filters.dueDateUntil) {
         return false;
       }
       return true;
@@ -103,6 +109,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
       costCenter: 'all',
       paymentType: 'all',
       status: 'all',
+      dueDateFrom: undefined,
       dueDateUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias por padrão
     };
     setFilters(newFilters);
@@ -288,7 +295,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
               Filtros
             </Button>
           {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || 
-             (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
+             filters.dueDateFrom || (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
             <Button
               variant="ghost"
               size="sm"
@@ -306,7 +313,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                 <CardTitle className="text-base">Filtros</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                   {/* Filtro por Fornecedor */}
                   <div className="space-y-2">
                     <Label htmlFor="supplier-filter">Fornecedor</Label>
@@ -453,7 +460,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
             Filtros
           </Button>
             {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || 
-               (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
+               filters.dueDateFrom || (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -471,7 +478,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
               <CardTitle className="text-base">Filtros</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 {/* Filtro por Fornecedor */}
                 <div className="space-y-2">
                   <Label htmlFor="supplier-filter">Fornecedor</Label>
@@ -556,9 +563,39 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                   </Select>
                 </div>
 
+                {/* Filtro por Vencimento De */}
+                <div className="space-y-2">
+                  <Label htmlFor="due-date-from-filter">Vencimento de</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !filters.dueDateFrom && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filters.dueDateFrom ? format(filters.dueDateFrom, "dd/MM/yyyy") : "Selecionar data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={filters.dueDateFrom}
+                        onSelect={(date) => {
+                          setFilters(prev => ({ ...prev, dueDateFrom: date }));
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
                 {/* Filtro por Vencimento Até */}
                 <div className="space-y-2">
-                  <Label htmlFor="due-date-filter">Vencimento até</Label>
+                  <Label htmlFor="due-date-until-filter">Vencimento até</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button

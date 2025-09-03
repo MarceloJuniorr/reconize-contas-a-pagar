@@ -140,6 +140,22 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
 
         if (uploadError) throw uploadError;
         
+        // Save attachment record in attachments table
+        const { error: attachmentError } = await supabase
+          .from('attachments')
+          .insert([{
+            account_id: account.id,
+            filename: attachment.name,
+            file_path: fileName,
+            mime_type: attachment.type,
+            file_size: attachment.size,
+            uploaded_by: (await supabase.auth.getUser()).data.user?.id,
+          }]);
+
+        if (attachmentError) {
+          console.error('Erro ao salvar registro do anexo:', attachmentError);
+        }
+        
         attachmentUrl = fileName;
       }
 

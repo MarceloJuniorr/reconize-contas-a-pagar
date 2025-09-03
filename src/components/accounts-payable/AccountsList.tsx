@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AccountForm } from './AccountForm';
 import { PaymentModal } from './PaymentModal';
 import { AccountHistoryModal } from './AccountHistoryModal';
+import { AttachmentsModal } from './AttachmentsModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';

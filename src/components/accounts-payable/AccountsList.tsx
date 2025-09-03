@@ -334,7 +334,11 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
 
   const isOverdue = (dueDate: string, status: string) => {
     if (status !== 'em_aberto') return false;
-    return new Date(dueDate) < new Date();
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + 
+      String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+      String(today.getDate()).padStart(2, '0');
+    return dueDate < todayStr;
   };
 
   if (loading) {

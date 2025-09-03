@@ -243,9 +243,15 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
   };
 
   const formatDate = (dateString: string) => {
-    // Evita problemas de timezone parseando a data diretamente
-    const [year, month, day] = dateString.split('-');
-    return `${day}/${month}/${year}`;
+    // Para datas simples (YYYY-MM-DD) como due_date
+    if (dateString.includes('T')) {
+      // Para timestamps completos como created_at
+      return format(new Date(dateString), 'dd/MM/yyyy HH:mm');
+    } else {
+      // Para datas simples (YYYY-MM-DD)
+      const [year, month, day] = dateString.split('-');
+      return `${day}/${month}/${year}`;
+    }
   };
 
   const getStatusColor = (status: string) => {

@@ -61,7 +61,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     costCenter: 'all',
     paymentType: 'all',
     status: 'all',
-    dueDateFrom: undefined, // Sem filtro de início por padrão para incluir vencidas
+    dueDateFrom: new Date(), // Data atual como padrão
     dueDateUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias por padrão
   });
   const { toast } = useToast();
@@ -103,13 +103,47 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     });
   }, [accounts, filters]);
 
+  // Calculate filtered accounts stats by payment type
+  const filteredStats = useMemo(() => {
+    const stats = {
+      boleto: { pago: 0, em_aberto: 0, totalPago: 0, totalAberto: 0 },
+      cartao: { pago: 0, em_aberto: 0, totalPago: 0, totalAberto: 0 },
+      transferencia: { pago: 0, em_aberto: 0, totalPago: 0, totalAberto: 0 },
+      pix: { pago: 0, em_aberto: 0, totalPago: 0, totalAberto: 0 }
+    };
+
+    filteredAccounts.forEach(account => {
+      const type = account.payment_type as keyof typeof stats;
+      if (stats[type]) {
+        if (account.status === 'pago') {
+          stats[type].pago += 1;
+          stats[type].totalPago += Number(account.amount);
+        } else if (account.status === 'em_aberto') {
+          stats[type].em_aberto += 1;
+          stats[type].totalAberto += Number(account.amount);
+        }
+      }
+    });
+
+    return stats;
+  }, [filteredAccounts]);
+
+  // Validate date range (max 3 months)
+  const validateDateRange = (fromDate: Date | undefined, untilDate: Date | undefined) => {
+    if (!fromDate || !untilDate) return true;
+    
+    const diffTime = Math.abs(untilDate.getTime() - fromDate.getTime());
+    const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30); // Approximate months
+    return diffMonths <= 3;
+  };
+
   const clearFilters = () => {
     const newFilters = {
       supplier: 'all',
       costCenter: 'all',
       paymentType: 'all',
       status: 'all',
-      dueDateFrom: undefined,
+      dueDateFrom: new Date(), // Data atual como padrão
       dueDateUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias por padrão
     };
     setFilters(newFilters);
@@ -295,7 +329,8 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
               Filtros
             </Button>
           {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || 
-             filters.dueDateFrom || (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
+             (filters.dueDateFrom && filters.dueDateFrom.getTime() !== new Date().setHours(0,0,0,0)) ||
+             (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
             <Button
               variant="ghost"
               size="sm"
@@ -460,7 +495,8 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
             Filtros
           </Button>
             {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || 
-               filters.dueDateFrom || (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
+               (filters.dueDateFrom && filters.dueDateFrom.getTime() !== new Date().setHours(0,0,0,0)) ||
+               (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -583,9 +619,17 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                       <Calendar
                         mode="single"
                         selected={filters.dueDateFrom}
-                        onSelect={(date) => {
-                          setFilters(prev => ({ ...prev, dueDateFrom: date }));
-                        }}
+                         onSelect={(date) => {
+                           if (date && !validateDateRange(date, filters.dueDateUntil)) {
+                             toast({
+                               title: "Intervalo inválido",
+                               description: "O intervalo de datas não pode ser maior que 3 meses",
+                               variant: "destructive",
+                             });
+                             return;
+                           }
+                           setFilters(prev => ({ ...prev, dueDateFrom: date }));
+                         }}
                         initialFocus
                         className={cn("p-3 pointer-events-auto")}
                       />
@@ -613,13 +657,21 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                       <Calendar
                         mode="single"
                         selected={filters.dueDateUntil}
-                        onSelect={(date) => {
-                          const newDate = date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-                          setFilters(prev => ({ ...prev, dueDateUntil: newDate }));
-                          if (onDateFilterChange) {
-                            onDateFilterChange(newDate);
-                          }
-                        }}
+                         onSelect={(date) => {
+                           if (date && !validateDateRange(filters.dueDateFrom, date)) {
+                             toast({
+                               title: "Intervalo inválido",
+                               description: "O intervalo de datas não pode ser maior que 3 meses",
+                               variant: "destructive",
+                             });
+                             return;
+                           }
+                           const newDate = date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                           setFilters(prev => ({ ...prev, dueDateUntil: newDate }));
+                           if (onDateFilterChange) {
+                             onDateFilterChange(newDate);
+                           }
+                         }}
                         initialFocus
                         className={cn("p-3 pointer-events-auto")}
                       />
@@ -631,11 +683,55 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
           </Card>
         )}
 
-        {/* Contador de resultados */}
+        {/* Dashboard das Contas Filtradas */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Resumo por Tipo de Pagamento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Object.entries(filteredStats).map(([type, stats]) => {
+                const totalCount = stats.pago + stats.em_aberto;
+                const totalValue = stats.totalPago + stats.totalAberto;
+                
+                if (totalCount === 0) return null;
+                
+                return (
+                  <Card key={type} className="border-l-4 border-l-primary">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-sm">
+                          {getPaymentTypeLabel(type)}
+                        </h4>
+                        <Badge variant="outline">{totalCount}</Badge>
+                      </div>
+                      
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-green-600">Pago:</span>
+                          <span>{stats.pago} - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalPago)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-orange-600">Em Aberto:</span>
+                          <span>{stats.em_aberto} - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalAberto)}</span>
+                        </div>
+                        <div className="flex justify-between font-medium border-t pt-1">
+                          <span>Total:</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+        
         <div className="text-sm text-muted-foreground">
           Mostrando {filteredAccounts.length} de {accounts.length} contas
           <br />
-          <span className="text-xs">Por padrão, exibindo apenas contas vencidas e que vencem nos próximos 7 dias</span>
+          <span className="text-xs">Intervalo máximo permitido: 3 meses</span>
         </div>
       </div>
 

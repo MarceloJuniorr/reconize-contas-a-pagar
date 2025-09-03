@@ -135,15 +135,15 @@ const AccountsPayable = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Contas a Pagar</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Contas a Pagar</h1>
           <p className="text-muted-foreground">
             Gerencie suas contas e obrigações financeiras
           </p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -151,7 +151,7 @@ const AccountsPayable = () => {
                 Nova Conta
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
               <DialogHeader>
                 <DialogTitle>Cadastrar Nova Conta a Pagar</DialogTitle>
               </DialogHeader>
@@ -166,7 +166,7 @@ const AccountsPayable = () => {
                 Importar CSV
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
               <DialogHeader>
                 <DialogTitle>Importar Contas via CSV</DialogTitle>
               </DialogHeader>
@@ -177,7 +177,7 @@ const AccountsPayable = () => {
       </div>
 
       {/* Dashboard Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total em Aberto</CardTitle>

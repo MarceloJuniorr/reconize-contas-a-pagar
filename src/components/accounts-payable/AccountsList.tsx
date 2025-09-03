@@ -1,11 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Eye, CheckCircle, X, Download } from 'lucide-react';
+import { Edit, Eye, CheckCircle, X, Download, History } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AccountForm } from './AccountForm';
 import { PaymentModal } from './PaymentModal';
+import { AccountHistoryModal } from './AccountHistoryModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,6 +36,7 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const { toast } = useToast();
   const { hasRole } = useAuth();
 
@@ -114,6 +116,11 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
       title: "Sucesso",
       description: "Pagamento registrado com sucesso",
     });
+  };
+
+  const handleViewHistory = (account: Account) => {
+    setSelectedAccount(account);
+    setIsHistoryOpen(true);
   };
 
   const formatCurrency = (value: number) => {
@@ -319,10 +326,23 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                   initialData={selectedAccount}
                 />
               ) : (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-semibold mb-3">Informações Básicas</h3>
+                 <div className="space-y-6">
+                   {/* Botão de Histórico */}
+                   <div className="flex justify-end">
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => handleViewHistory(selectedAccount)}
+                       className="flex items-center gap-2"
+                     >
+                       <History className="h-4 w-4" />
+                       Ver Histórico
+                     </Button>
+                   </div>
+                   
+                   <div className="grid grid-cols-2 gap-6">
+                     <div>
+                       <h3 className="font-semibold mb-3">Informações Básicas</h3>
                       <div className="space-y-3">
                         <div>
                           <span className="text-sm font-medium text-muted-foreground">Descrição:</span>
@@ -389,6 +409,15 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
           open={isPaymentOpen}
           onClose={() => setIsPaymentOpen(false)}
           onSuccess={handlePaymentCompleted}
+        />
+      )}
+
+      {/* Modal de Histórico */}
+      {selectedAccount && (
+        <AccountHistoryModal
+          accountId={selectedAccount.id}
+          open={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
         />
       )}
     </>

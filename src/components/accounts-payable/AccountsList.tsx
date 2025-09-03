@@ -65,6 +65,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
   const [isEditMode, setIsEditMode] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     supplier: 'all',

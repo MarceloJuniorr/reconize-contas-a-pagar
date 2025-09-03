@@ -180,8 +180,18 @@ export const CSVImport = ({ onSuccess }: CSVImportProps) => {
         setProgress(((i + 1) / rows.length) * 100);
 
         try {
+          // Debug: log da linha atual
+          console.log('Processando linha:', i + 2, row);
+          
           // Validar campos obrigatórios
           if (!row.nome_fornecedor || !row.descricao || !row.valor || !row.vencimento || !row.centro_custo) {
+            console.log('Campos faltando:', {
+              nome_fornecedor: row.nome_fornecedor,
+              descricao: row.descricao,
+              valor: row.valor,
+              vencimento: row.vencimento,
+              centro_custo: row.centro_custo
+            });
             result.errors.push({
               row: i + 2, // +2 porque começamos do índice 0 e pulamos o cabeçalho
               error: 'Campos obrigatórios não preenchidos'

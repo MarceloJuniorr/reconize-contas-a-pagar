@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Edit, Eye, CheckCircle, X, Download, History, Filter, CalendarIcon } from 'lucide-react';
+import { Edit, Eye, CheckCircle, X, Download, History, Filter, CalendarIcon, Paperclip } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';

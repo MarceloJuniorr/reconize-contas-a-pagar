@@ -47,6 +47,10 @@ const Auth = () => {
           <CardDescription>
             Sistema de gestão de contas a pagar
           </CardDescription>
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md text-sm text-blue-800 dark:text-blue-200">
+            <p className="font-medium">⚠️ Atenção:</p>
+            <p>Após o cadastro, sua conta precisa ser ativada por um administrador para ter acesso ao sistema.</p>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">

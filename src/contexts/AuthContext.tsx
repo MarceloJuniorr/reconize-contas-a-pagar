@@ -85,12 +85,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (rolesError) throw rolesError;
 
+      const userRoles = rolesData?.map(r => r.role) || [];
+      
       setProfile({
         id: profileData.id,
         full_name: profileData.full_name,
         email: profileData.email,
-        roles: rolesData.map(r => r.role) || []
+        roles: userRoles
       });
+
+      // Se o usuário não tem roles, fazer logout automático
+      if (userRoles.length === 0) {
+        setTimeout(async () => {
+          await supabase.auth.signOut();
+          toast({
+            title: "Acesso negado",
+            description: "Sua conta ainda não foi ativada por um administrador. Entre em contato com o suporte.",
+            variant: "destructive",
+          });
+        }, 100);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
     }

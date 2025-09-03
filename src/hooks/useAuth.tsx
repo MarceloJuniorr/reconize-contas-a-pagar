@@ -60,13 +60,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Verificar se usuário tem pelo menos um papel
   useEffect(() => {
     if (user && userRoles.length === 0 && !loading) {
-      // Se o usuário está logado mas não tem papéis, fazer logout
-      signOut();
-      toast({
-        title: "Acesso negado",
-        description: "Sua conta ainda não foi ativada por um administrador.",
-        variant: "destructive",
-      });
+      // Se o usuário está logado mas não tem papéis, fazer logout após um pequeno delay
+      const timeoutId = setTimeout(async () => {
+        await signOut();
+        toast({
+          title: "Acesso negado",
+          description: "Sua conta ainda não foi ativada por um administrador. Entre em contato com o suporte para ativação.",
+          variant: "destructive",
+        });
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [user, userRoles, loading]);
 

@@ -67,7 +67,11 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
       cost_center_id: initialData?.cost_center_id || '',
       payment_type: initialData?.payment_type || 'boleto',
       description: initialData?.description || '',
-      amount: initialData?.amount?.toString() || '',
+      amount: initialData?.amount ? 
+        parseFloat(initialData.amount).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }) : '',
       due_date: initialData?.due_date || '',
       observations: initialData?.observations || '',
       boleto_barcode: initialData?.boleto_barcode || '',

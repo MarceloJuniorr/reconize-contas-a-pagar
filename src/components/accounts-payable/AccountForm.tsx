@@ -9,9 +9,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, ScanBarcode } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { BarcodeScanner } from '@/components/BarcodeScanner';
 
 const baseAccountSchema = z.object({
   supplier_id: z.string().min(1, 'Fornecedor é obrigatório'),
@@ -58,6 +59,7 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
   const [costCenters, setCostCenters] = useState([]);
   const [loading, setLoading] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [showScanner, setShowScanner] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<AccountFormData>({
@@ -368,6 +370,11 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
     }
   };
 
+  const handleScanResult = (scannedCode: string) => {
+    handleBoletoChange(scannedCode);
+    setShowScanner(false);
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -484,13 +491,32 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Código de Barras / Linha Digitável</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        {...field} 
-                        placeholder="Cole aqui o código de barras ou linha digitável"
-                        onChange={(e) => handleBoletoChange(e.target.value)}
-                      />
-                    </FormControl>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <FormControl className="flex-1">
+                          <Textarea 
+                            {...field} 
+                            placeholder="Cole aqui o código de barras ou linha digitável"
+                            onChange={(e) => handleBoletoChange(e.target.value)}
+                            className="resize-none"
+                            rows={3}
+                          />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setShowScanner(true)}
+                          className="shrink-0"
+                          title="Escanear código de barras"
+                        >
+                          <ScanBarcode className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Digite ou escaneie o código de barras do boleto
+                      </p>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -842,6 +868,12 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
           </Button>
         </div>
       </form>
+      
+      <BarcodeScanner
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleScanResult}
+      />
     </Form>
   );
 };

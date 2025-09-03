@@ -55,10 +55,10 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Filters>({
-    supplier: '',
-    costCenter: '',
-    paymentType: '',
-    status: '',
+    supplier: 'all',
+    costCenter: 'all',
+    paymentType: 'all',
+    status: 'all',
     dueDateUntil: undefined,
   });
   const { toast } = useToast();
@@ -77,16 +77,16 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
   // Filter accounts based on selected filters
   const filteredAccounts = useMemo(() => {
     return accounts.filter(account => {
-      if (filters.supplier && account.suppliers?.name !== filters.supplier) {
+      if (filters.supplier !== 'all' && account.suppliers?.name !== filters.supplier) {
         return false;
       }
-      if (filters.costCenter && `${account.cost_centers?.code} - ${account.cost_centers?.name}` !== filters.costCenter) {
+      if (filters.costCenter !== 'all' && `${account.cost_centers?.code} - ${account.cost_centers?.name}` !== filters.costCenter) {
         return false;
       }
-      if (filters.paymentType && account.payment_type !== filters.paymentType) {
+      if (filters.paymentType !== 'all' && account.payment_type !== filters.paymentType) {
         return false;
       }
-      if (filters.status && account.status !== filters.status) {
+      if (filters.status !== 'all' && account.status !== filters.status) {
         return false;
       }
       if (filters.dueDateUntil && new Date(account.due_date) > filters.dueDateUntil) {
@@ -98,10 +98,10 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
 
   const clearFilters = () => {
     setFilters({
-      supplier: '',
-      costCenter: '',
-      paymentType: '',
-      status: '',
+      supplier: 'all',
+      costCenter: 'all',
+      paymentType: 'all',
+      status: 'all',
       dueDateUntil: undefined,
     });
   };
@@ -282,16 +282,16 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
               <Filter className="h-4 w-4" />
               Filtros
             </Button>
-            {(filters.supplier || filters.costCenter || filters.paymentType || filters.status || filters.dueDateUntil) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="text-muted-foreground"
-              >
-                Limpar filtros
-              </Button>
-            )}
+          {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || filters.dueDateUntil) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="text-muted-foreground"
+            >
+              Limpar filtros
+            </Button>
+          )}
           </div>
 
           {showFilters && (
@@ -310,15 +310,15 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Todos" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Todos</SelectItem>
-                        {filterOptions.suppliers.map(supplier => (
-                          <SelectItem key={supplier} value={supplier}>
-                            {supplier}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {filterOptions.suppliers.map(supplier => (
+                        <SelectItem key={supplier} value={supplier}>
+                          {supplier}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                     </Select>
                   </div>
 
@@ -331,15 +331,15 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Todos" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Todos</SelectItem>
-                        {filterOptions.costCenters.map(costCenter => (
-                          <SelectItem key={costCenter} value={costCenter}>
-                            {costCenter}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {filterOptions.costCenters.map(costCenter => (
+                        <SelectItem key={costCenter} value={costCenter}>
+                          {costCenter}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                     </Select>
                   </div>
 
@@ -352,15 +352,15 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Todos" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Todos</SelectItem>
-                        {filterOptions.paymentTypes.map(type => (
-                          <SelectItem key={type} value={type}>
-                            {getPaymentTypeLabel(type)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {filterOptions.paymentTypes.map(type => (
+                        <SelectItem key={type} value={type}>
+                          {getPaymentTypeLabel(type)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                     </Select>
                   </div>
 
@@ -373,15 +373,15 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Todos" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Todos</SelectItem>
-                        {filterOptions.statuses.map(status => (
-                          <SelectItem key={status} value={status}>
-                            {getStatusLabel(status)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {filterOptions.statuses.map(status => (
+                        <SelectItem key={status} value={status}>
+                          {getStatusLabel(status)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                     </Select>
                   </div>
 
@@ -446,13 +446,13 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
             <Filter className="h-4 w-4" />
             Filtros
           </Button>
-          {(filters.supplier || filters.costCenter || filters.paymentType || filters.status || filters.dueDateUntil) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="text-muted-foreground"
-            >
+            {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || filters.dueDateUntil) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="text-muted-foreground"
+              >
               Limpar filtros
             </Button>
           )}
@@ -476,7 +476,7 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
                       {filterOptions.suppliers.map(supplier => (
                         <SelectItem key={supplier} value={supplier}>
                           {supplier}
@@ -497,7 +497,7 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
                       {filterOptions.costCenters.map(costCenter => (
                         <SelectItem key={costCenter} value={costCenter}>
                           {costCenter}
@@ -518,7 +518,7 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
                       {filterOptions.paymentTypes.map(type => (
                         <SelectItem key={type} value={type}>
                           {getPaymentTypeLabel(type)}
@@ -539,7 +539,7 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
                       {filterOptions.statuses.map(status => (
                         <SelectItem key={status} value={status}>
                           {getStatusLabel(status)}

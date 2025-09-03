@@ -23,6 +23,30 @@ interface AuditLog {
   };
 }
 
+interface Payment {
+  id: string;
+  payment_date: string;
+  amount_paid: number;
+  payment_method: string;
+  notes: string;
+  created_at: string;
+  paid_by: string;
+  profiles?: {
+    full_name: string;
+  };
+}
+
+interface HistoryItem {
+  id: string;
+  type: 'audit' | 'payment';
+  created_at: string;
+  user_id: string;
+  profiles?: {
+    full_name: string;
+  };
+  data: AuditLog | Payment;
+}
+
 interface AccountHistoryModalProps {
   accountId: string;
   open: boolean;
@@ -30,7 +54,7 @@ interface AccountHistoryModalProps {
 }
 
 export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistoryModalProps) => {
-  const [history, setHistory] = useState<AuditLog[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -42,7 +66,8 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Buscar logs de auditoria
+      const { data: auditData, error: auditError } = await supabase
         .from('audit_logs')
         .select(`
           id,
@@ -55,11 +80,53 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
             full_name
           )
         `)
-        .eq('record_id', accountId)
-        .order('created_at', { ascending: false });
+        .eq('record_id', accountId);
 
-      if (error) throw error;
-      setHistory(data || []);
+      if (auditError) throw auditError;
+
+      // Buscar pagamentos
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select(`
+          id,
+          payment_date,
+          amount_paid,
+          payment_method,
+          notes,
+          created_at,
+          paid_by,
+          profiles:paid_by (
+            full_name
+          )
+        `)
+        .eq('account_id', accountId);
+
+      if (paymentsError) throw paymentsError;
+
+      // Combinar os dados em um único array
+      const combinedHistory: HistoryItem[] = [
+        ...(auditData || []).map(log => ({
+          id: log.id,
+          type: 'audit' as const,
+          created_at: log.created_at,
+          user_id: log.user_id,
+          profiles: log.profiles,
+          data: log
+        })),
+        ...(paymentsData || []).map(payment => ({
+          id: payment.id,
+          type: 'payment' as const,
+          created_at: payment.created_at,
+          user_id: payment.paid_by,
+          profiles: payment.profiles,
+          data: payment
+        }))
+      ];
+
+      // Ordenar por data (mais recente primeiro)
+      combinedHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setHistory(combinedHistory);
     } catch (error) {
       console.error('Erro ao buscar histórico:', error);
     } finally {
@@ -67,8 +134,13 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
     }
   };
 
-  const getActionIcon = (action: string) => {
-    switch (action) {
+  const getActionIcon = (historyItem: HistoryItem) => {
+    if (historyItem.type === 'payment') {
+      return <CreditCard className="h-4 w-4 text-green-600" />;
+    }
+    
+    const log = historyItem.data as AuditLog;
+    switch (log.action) {
       case 'INSERT':
         return <Plus className="h-4 w-4 text-green-600" />;
       case 'UPDATE':
@@ -80,8 +152,13 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
     }
   };
 
-  const getActionLabel = (action: string) => {
-    switch (action) {
+  const getActionLabel = (historyItem: HistoryItem) => {
+    if (historyItem.type === 'payment') {
+      return 'Pagamento';
+    }
+    
+    const log = historyItem.data as AuditLog;
+    switch (log.action) {
       case 'INSERT':
         return 'Criou';
       case 'UPDATE':
@@ -89,12 +166,17 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
       case 'DELETE':
         return 'Pagou';
       default:
-        return action;
+        return log.action;
     }
   };
 
-  const getActionColor = (action: string) => {
-    switch (action) {
+  const getActionColor = (historyItem: HistoryItem) => {
+    if (historyItem.type === 'payment') {
+      return 'bg-green-100 text-green-800';
+    }
+    
+    const log = historyItem.data as AuditLog;
+    switch (log.action) {
       case 'INSERT':
         return 'bg-green-100 text-green-800';
       case 'UPDATE':
@@ -186,61 +268,89 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
             </div>
           ) : (
             <div className="space-y-4">
-              {history.map((log, index) => (
-                <div key={log.id} className="relative">
+              {history.map((historyItem, index) => (
+                <div key={historyItem.id} className="relative">
                   <div className="flex items-start gap-4 p-4 border rounded-lg">
                     <div className="flex-shrink-0">
-                      {getActionIcon(log.action)}
+                      {getActionIcon(historyItem)}
                     </div>
                     
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Badge className={getActionColor(log.action)}>
-                            {getActionLabel(log.action)}
+                          <Badge className={getActionColor(historyItem)}>
+                            {getActionLabel(historyItem)}
                           </Badge>
                           <span className="text-sm text-muted-foreground flex items-center gap-1">
                             <User className="h-3 w-3" />
-                            {log.profiles?.full_name || 'Usuário desconhecido'}
+                            {historyItem.profiles?.full_name || 'Usuário desconhecido'}
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          {formatDateTime(log.created_at)}
+                          {formatDateTime(historyItem.created_at)}
                         </span>
                       </div>
                       
-                      {log.action === 'UPDATE' && log.old_values && log.new_values && (
-                        <div className="space-y-2">
-                          {getChangedFields(log.old_values, log.new_values).map((change) => (
-                            <div key={change.field} className="text-sm bg-gray-50 p-3 rounded">
-                              <div className="font-medium text-gray-900 mb-1">
-                                {getFieldLabel(change.field)}:
+                      {/* Conteúdo específico para logs de auditoria */}
+                      {historyItem.type === 'audit' && (() => {
+                        const log = historyItem.data as AuditLog;
+                        return (
+                          <>
+                            {log.action === 'UPDATE' && log.old_values && log.new_values && (
+                              <div className="space-y-2">
+                                {getChangedFields(log.old_values, log.new_values).map((change) => (
+                                  <div key={change.field} className="text-sm bg-gray-50 p-3 rounded">
+                                    <div className="font-medium text-gray-900 mb-1">
+                                      {getFieldLabel(change.field)}:
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-red-600 line-through">
+                                        {formatValue(change.field, change.from)}
+                                      </span>
+                                      <span className="text-gray-400">→</span>
+                                      <span className="text-green-600 font-medium">
+                                        {formatValue(change.field, change.to)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-red-600 line-through">
-                                  {formatValue(change.field, change.from)}
-                                </span>
-                                <span className="text-gray-400">→</span>
-                                <span className="text-green-600 font-medium">
-                                  {formatValue(change.field, change.to)}
-                                </span>
+                            )}
+                            
+                            {log.action === 'INSERT' && (
+                              <div className="text-sm text-green-700">
+                                Conta criada no sistema
                               </div>
+                            )}
+                            
+                            {log.action === 'DELETE' && (
+                              <div className="text-sm text-red-700">
+                                Conta marcada como paga
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                      
+                      {/* Conteúdo específico para pagamentos */}
+                      {historyItem.type === 'payment' && (() => {
+                        const payment = historyItem.data as Payment;
+                        return (
+                          <div className="space-y-2">
+                            <div className="text-sm text-green-700">
+                              Pagamento registrado por {historyItem.profiles?.full_name || 'Usuário desconhecido'}
                             </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {log.action === 'INSERT' && (
-                        <div className="text-sm text-green-700">
-                          Conta criada no sistema
-                        </div>
-                      )}
-                      
-                      {log.action === 'DELETE' && (
-                        <div className="text-sm text-red-700">
-                          Conta marcada como paga
-                        </div>
-                      )}
+                            <div className="text-sm bg-green-50 p-3 rounded space-y-1">
+                              <div><strong>Data do Pagamento:</strong> {new Date(payment.payment_date).toLocaleDateString('pt-BR')}</div>
+                              <div><strong>Valor Pago:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount_paid)}</div>
+                              <div><strong>Método:</strong> {payment.payment_method}</div>
+                              {payment.notes && (
+                                <div><strong>Observações:</strong> {payment.notes}</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                   

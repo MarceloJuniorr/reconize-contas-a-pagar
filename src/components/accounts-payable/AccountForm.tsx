@@ -275,8 +275,10 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
   };
 
   const extractDueDateFromDigitableLine = (line: string) => {
-    // Extrai o fator de vencimento da linha digitável (posições 33-36)
-    const dueFactor = parseInt(line.substring(33, 37));
+    // Na linha digitável, o fator de vencimento está no campo 5 (últimos 14 dígitos)
+    // Posições 0-3 do campo 5 contêm o fator de vencimento
+    const campo5 = line.slice(-14); // Últimos 14 dígitos
+    const dueFactor = parseInt(campo5.substring(0, 4));
     if (dueFactor === 0) return null;
     
     // Data base: 07/10/1997
@@ -287,8 +289,10 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
   };
 
   const extractAmountFromDigitableLine = (line: string) => {
-    // Extrai o valor da linha digitável (posições 37-47)
-    const amountStr = line.substring(37, 47);
+    // Na linha digitável, o valor está no campo 5 (últimos 14 dígitos)
+    // Posições 4-13 do campo 5 contêm o valor em centavos
+    const campo5 = line.slice(-14); // Últimos 14 dígitos
+    const amountStr = campo5.substring(4, 14); // Posições 4-13 do campo 5
     const amount = parseInt(amountStr) / 100;
     
     return amount > 0 ? amount.toFixed(2).replace('.', ',') : null;

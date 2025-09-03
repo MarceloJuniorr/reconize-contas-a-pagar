@@ -12,6 +12,11 @@ const Layout = () => {
   } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   const navigation = [{
     name: 'Dashboard',
     href: '/',
@@ -36,9 +41,11 @@ const Layout = () => {
       icon: Users
     });
   }
-  const handleSignOut = async () => {
-    await signOut();
-  };
+  navigation.push({
+    name: 'Sair',
+    href: '#',
+    icon: LogOut
+  });
   return <div className="min-h-screen bg-background">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 border-b border-sidebar-border bg-sidebar">
@@ -59,6 +66,20 @@ const Layout = () => {
                 {navigation.map(item => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.href;
+                  
+                  if (item.name === 'Sair') {
+                    return <button
+                      key={item.name}
+                      onClick={() => {
+                        handleSignOut();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left">
+                        <Icon className="h-4 w-4" />
+                        {item.name}
+                      </button>;
+                  }
+                  
                   return <Link 
                     key={item.name} 
                     to={item.href} 
@@ -69,13 +90,6 @@ const Layout = () => {
                     </Link>;
                 })}
               </nav>
-              
-              <div className="p-4">
-                <Button variant="outline" onClick={handleSignOut} className="w-full">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sair
-                </Button>
-              </div>
             </div>
           </SheetContent>
         </Sheet>
@@ -90,21 +104,25 @@ const Layout = () => {
           
           <nav className="px-4 space-y-2 flex-1">
             {navigation.map(item => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.href;
-            return <Link key={item.name} to={item.href} className={cn('flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors', isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground')}>
-                  <Icon className="h-4 w-4" />
-                  {item.name}
-                </Link>;
-          })}
+              const Icon = item.icon;
+              const isActive = location.pathname === item.href;
+              
+              if (item.name === 'Sair') {
+                return <button
+                  key={item.name}
+                  onClick={handleSignOut}
+                  className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left">
+                    <Icon className="h-4 w-4" />
+                    {item.name}
+                  </button>;
+              }
+              
+              return <Link key={item.name} to={item.href} className={cn('flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors', isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground')}>
+                    <Icon className="h-4 w-4" />
+                    {item.name}
+                  </Link>;
+            })}
           </nav>
-          
-          <div className="p-4">
-            <Button variant="outline" onClick={handleSignOut} className="w-full">
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </Button>
-          </div>
         </div>
 
         {/* Main content */}

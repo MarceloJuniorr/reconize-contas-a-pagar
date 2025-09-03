@@ -13,8 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 interface DashboardStats {
   totalOpen: number;
   totalOverdue: number;
-  totalPaidThisMonth: number;
-  dueNextWeek: number;
+  dueToday: number;
+  dueTomorrow: number;
 }
 
 const AccountsPayable = () => {
@@ -22,8 +22,8 @@ const AccountsPayable = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalOpen: 0,
     totalOverdue: 0,
-    totalPaidThisMonth: 0,
-    dueNextWeek: 0,
+    dueToday: 0,
+    dueTomorrow: 0,
   });
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -63,8 +63,7 @@ const AccountsPayable = () => {
   const fetchStats = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       // Total em aberto
       const { data: openAccounts } = await supabase
@@ -79,26 +78,25 @@ const AccountsPayable = () => {
         .eq('status', 'em_aberto')
         .lt('due_date', today);
 
-      // Total pago no mês
-      const { data: paidThisMonth } = await supabase
-        .from('accounts_payable')
-        .select('amount')
-        .eq('status', 'pago')
-        .gte('updated_at', firstDayOfMonth);
-
-      // Vencendo na próxima semana
-      const { data: dueNextWeekData } = await supabase
+      // Vencendo hoje
+      const { data: dueTodayData } = await supabase
         .from('accounts_payable')
         .select('amount')
         .eq('status', 'em_aberto')
-        .gte('due_date', today)
-        .lte('due_date', nextWeek);
+        .eq('due_date', today);
+
+      // Vencendo amanhã
+      const { data: dueTomorrowData } = await supabase
+        .from('accounts_payable')
+        .select('amount')
+        .eq('status', 'em_aberto')
+        .eq('due_date', tomorrow);
 
       setStats({
         totalOpen: openAccounts?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
         totalOverdue: overdueAccounts?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
-        totalPaidThisMonth: paidThisMonth?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
-        dueNextWeek: dueNextWeekData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
+        dueToday: dueTodayData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
+        dueTomorrow: dueTomorrowData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
       });
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
@@ -206,26 +204,26 @@ const AccountsPayable = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pago no Mês</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">Vencendo Hoje</CardTitle>
+            <Calendar className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalPaidThisMonth)}</div>
+            <div className="text-2xl font-bold text-orange-500">{formatCurrency(stats.dueToday)}</div>
             <p className="text-xs text-muted-foreground">
-              Total pago neste mês
+              Contas que vencem hoje
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Próxima Semana</CardTitle>
-            <Calendar className="h-4 w-4 text-orange-500" />
+            <CardTitle className="text-sm font-medium">Vence Amanhã</CardTitle>
+            <Calendar className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-500">{formatCurrency(stats.dueNextWeek)}</div>
+            <div className="text-2xl font-bold text-yellow-500">{formatCurrency(stats.dueTomorrow)}</div>
             <p className="text-xs text-muted-foreground">
-              Vencendo em 7 dias
+              Contas que vencem amanhã
             </p>
           </CardContent>
         </Card>

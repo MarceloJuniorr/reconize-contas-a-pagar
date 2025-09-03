@@ -260,6 +260,11 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     setIsHistoryOpen(true);
   };
 
+  const handleViewAttachments = (account: Account) => {
+    setSelectedAccount(account);
+    setIsAttachmentsOpen(true);
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -951,6 +956,15 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewAttachments(account)}
+                      title="Ver anexos"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
                     
                     {account.status === 'em_aberto' && (
                       <Button
@@ -1103,6 +1117,15 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
           accountId={selectedAccount.id}
           open={isHistoryOpen}
           onClose={() => setIsHistoryOpen(false)}
+        />
+      )}
+
+      {/* Modal de Anexos */}
+      {selectedAccount && (
+        <AttachmentsModal
+          accountId={selectedAccount.id}
+          open={isAttachmentsOpen}
+          onClose={() => setIsAttachmentsOpen(false)}
         />
       )}
     </>

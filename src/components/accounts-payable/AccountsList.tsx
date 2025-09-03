@@ -348,7 +348,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                 <CardTitle className="text-base">Filtros</CardTitle>
               </CardHeader>
               <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                   {/* Filtro por Fornecedor */}
                   <div className="space-y-2">
                     <Label htmlFor="supplier-filter">Fornecedor</Label>
@@ -433,33 +433,6 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     </Select>
                   </div>
 
-                  {/* Filtro por Vencimento Até */}
-                  <div className="space-y-2">
-                    <Label htmlFor="due-date-filter">Vencimento até</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !filters.dueDateUntil && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {filters.dueDateUntil ? format(filters.dueDateUntil, "dd/MM/yyyy") : "Selecionar data"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={filters.dueDateUntil}
-                          onSelect={(date) => setFilters(prev => ({ ...prev, dueDateUntil: date }))}
-                          initialFocus
-                          className={cn("p-3 pointer-events-auto")}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -514,7 +487,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
               <CardTitle className="text-base">Filtros</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 {/* Filtro por Fornecedor */}
                 <div className="space-y-2">
                   <Label htmlFor="supplier-filter">Fornecedor</Label>
@@ -599,82 +572,100 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                   </Select>
                 </div>
 
-                {/* Filtro por Vencimento De */}
+                {/* Filtro por Vencimento */}
                 <div className="space-y-2">
-                  <Label htmlFor="due-date-from-filter">Vencimento de</Label>
+                  <Label htmlFor="due-date-filter">Vencimento</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
                           "w-full justify-start text-left font-normal",
-                          !filters.dueDateFrom && "text-muted-foreground"
+                          !filters.dueDateFrom && !filters.dueDateUntil && "text-muted-foreground"
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {filters.dueDateFrom ? format(filters.dueDateFrom, "dd/MM/yyyy") : "Selecionar data"}
+                        {filters.dueDateFrom && filters.dueDateUntil 
+                          ? `${format(filters.dueDateFrom, "dd/MM/yyyy")} - ${format(filters.dueDateUntil, "dd/MM/yyyy")}`
+                          : "Selecionar período"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={filters.dueDateFrom}
-                         onSelect={(date) => {
-                           if (date && !validateDateRange(date, filters.dueDateUntil)) {
-                             toast({
-                               title: "Intervalo inválido",
-                               description: "O intervalo de datas não pode ser maior que 3 meses",
-                               variant: "destructive",
-                             });
-                             return;
-                           }
-                           setFilters(prev => ({ ...prev, dueDateFrom: date }));
-                         }}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Filtro por Vencimento Até */}
-                <div className="space-y-2">
-                  <Label htmlFor="due-date-until-filter">Vencimento até</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !filters.dueDateUntil && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {filters.dueDateUntil ? format(filters.dueDateUntil, "dd/MM/yyyy") : "Selecionar data"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={filters.dueDateUntil}
-                         onSelect={(date) => {
-                           if (date && !validateDateRange(filters.dueDateFrom, date)) {
-                             toast({
-                               title: "Intervalo inválido",
-                               description: "O intervalo de datas não pode ser maior que 3 meses",
-                               variant: "destructive",
-                             });
-                             return;
-                           }
-                           const newDate = date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-                           setFilters(prev => ({ ...prev, dueDateUntil: newDate }));
-                           if (onDateFilterChange) {
-                             onDateFilterChange(newDate);
-                           }
-                         }}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
+                      <div className="p-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs font-medium">Data inicial</Label>
+                            <Calendar
+                              mode="single"
+                              selected={filters.dueDateFrom}
+                              onSelect={(date) => {
+                                if (date && filters.dueDateUntil && !validateDateRange(date, filters.dueDateUntil)) {
+                                  toast({
+                                    title: "Intervalo inválido",
+                                    description: "O intervalo de datas não pode ser maior que 3 meses",
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                                setFilters(prev => ({ ...prev, dueDateFrom: date }));
+                              }}
+                              className={cn("p-0 pointer-events-auto")}
+                              disabled={(date) => {
+                                if (!filters.dueDateUntil) return false;
+                                return date > filters.dueDateUntil;
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium">Data final</Label>
+                            <Calendar
+                              mode="single"
+                              selected={filters.dueDateUntil}
+                              onSelect={(date) => {
+                                if (date && filters.dueDateFrom && !validateDateRange(filters.dueDateFrom, date)) {
+                                  toast({
+                                    title: "Intervalo inválido",
+                                    description: "O intervalo de datas não pode ser maior que 3 meses",
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                                const newDate = date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                                setFilters(prev => ({ ...prev, dueDateUntil: newDate }));
+                                if (onDateFilterChange) {
+                                  onDateFilterChange(newDate);
+                                }
+                              }}
+                              className={cn("p-0 pointer-events-auto")}
+                              disabled={(date) => {
+                                if (!filters.dueDateFrom) return false;
+                                return date < filters.dueDateFrom;
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-3 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const today = new Date();
+                              const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                              setFilters(prev => ({ 
+                                ...prev, 
+                                dueDateFrom: today, 
+                                dueDateUntil: nextWeek 
+                              }));
+                              if (onDateFilterChange) {
+                                onDateFilterChange(nextWeek);
+                              }
+                            }}
+                            className="w-full"
+                          >
+                            Hoje + 7 dias (padrão)
+                          </Button>
+                        </div>
+                      </div>
                     </PopoverContent>
                   </Popover>
                 </div>

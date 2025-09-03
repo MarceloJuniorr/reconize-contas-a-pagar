@@ -15,6 +15,8 @@ interface DashboardStats {
   totalOverdue: number;
   dueToday: number;
   dueTomorrow: number;
+  dueNextWeek: number;
+  paidToday: number;
 }
 
 const AccountsPayable = () => {
@@ -24,6 +26,8 @@ const AccountsPayable = () => {
     totalOverdue: 0,
     dueToday: 0,
     dueTomorrow: 0,
+    dueNextWeek: 0,
+    paidToday: 0,
   });
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -64,6 +68,7 @@ const AccountsPayable = () => {
     try {
       const today = new Date().toISOString().split('T')[0];
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       // Total em aberto
       const { data: openAccounts } = await supabase
@@ -92,11 +97,27 @@ const AccountsPayable = () => {
         .eq('status', 'em_aberto')
         .eq('due_date', tomorrow);
 
+      // Vencendo na próxima semana
+      const { data: dueNextWeekData } = await supabase
+        .from('accounts_payable')
+        .select('amount')
+        .eq('status', 'em_aberto')
+        .gte('due_date', today)
+        .lte('due_date', nextWeek);
+
+      // Pago hoje
+      const { data: paidTodayData } = await supabase
+        .from('payments')
+        .select('amount_paid')
+        .eq('payment_date', today);
+
       setStats({
         totalOpen: openAccounts?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
         totalOverdue: overdueAccounts?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
         dueToday: dueTodayData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
         dueTomorrow: dueTomorrowData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
+        dueNextWeek: dueNextWeekData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
+        paidToday: paidTodayData?.reduce((sum, payment) => sum + Number(payment.amount_paid), 0) || 0,
       });
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
@@ -175,7 +196,7 @@ const AccountsPayable = () => {
       </div>
 
       {/* Dashboard Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total em Aberto</CardTitle>
@@ -224,6 +245,32 @@ const AccountsPayable = () => {
             <div className="text-2xl font-bold text-yellow-500">{formatCurrency(stats.dueTomorrow)}</div>
             <p className="text-xs text-muted-foreground">
               Contas que vencem amanhã
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Próxima Semana</CardTitle>
+            <Calendar className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-500">{formatCurrency(stats.dueNextWeek)}</div>
+            <p className="text-xs text-muted-foreground">
+              Vencendo em 7 dias
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pago Hoje</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.paidToday)}</div>
+            <p className="text-xs text-muted-foreground">
+              Total pago hoje
             </p>
           </CardContent>
         </Card>

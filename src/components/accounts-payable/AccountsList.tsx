@@ -19,6 +19,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
+interface Attachment {
+  id: string;
+  filename: string;
+  file_path: string;
+  file_size: number;
+  mime_type: string;
+  created_at: string;
+  source: 'account' | 'payment';
+}
+
 interface Account {
   id: string;
   description: string;

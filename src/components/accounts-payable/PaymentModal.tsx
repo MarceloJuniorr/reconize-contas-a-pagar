@@ -188,7 +188,7 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Marcar como Pago</DialogTitle>
         </DialogHeader>

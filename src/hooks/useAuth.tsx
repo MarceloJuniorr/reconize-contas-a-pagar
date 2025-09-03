@@ -27,6 +27,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
+        
+        // Se é um evento de logout, não processar mais nada
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setUserRoles([]);
+          setLoading(false);
+          return;
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -183,20 +194,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Fazer logout do Supabase
       await supabase.auth.signOut();
       
+      // Aguardar um pouco para garantir que a sessão foi limpa
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       toast({
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso.",
       });
       
+      // Forçar limpeza do localStorage também
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.clear();
+      
       // Forçar redirecionamento para login
-      window.location.href = '/auth';
+      window.location.replace('/auth');
     } catch (error) {
       console.error('Sign out error:', error);
       // Mesmo em caso de erro, limpar dados locais e redirecionar
       setUser(null);
       setSession(null); 
       setUserRoles([]);
-      window.location.href = '/auth';
+      localStorage.clear();
+      window.location.replace('/auth');
     }
   };
 

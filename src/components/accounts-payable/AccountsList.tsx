@@ -269,14 +269,16 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
                       <Eye className="h-4 w-4" />
                     </Button>
                     
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditAccount(account)}
-                      title="Editar conta"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    {account.status === 'em_aberto' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditAccount(account)}
+                        title="Editar conta"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
 
                     {account.status === 'em_aberto' && (hasRole('admin') || hasRole('pagador')) && (
                       <Button

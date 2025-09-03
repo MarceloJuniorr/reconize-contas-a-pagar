@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Suppliers from "./pages/Suppliers";
 import CostCenters from "./pages/CostCenters";
 import AccountsPayable from "./pages/AccountsPayable";
+import Users from "./pages/Users";
 
 const queryClient = new QueryClient();
 
@@ -36,7 +37,7 @@ const App = () => (
               <Route path="cost-centers" element={<CostCenters />} />
               <Route path="users" element={
                 <ProtectedRoute requiredRole="admin">
-                  <div className="p-4">Usuários - Em construção</div>
+                  <Users />
                 </ProtectedRoute>
               } />
             </Route>

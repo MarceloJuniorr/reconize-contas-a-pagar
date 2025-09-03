@@ -149,6 +149,9 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
             file_path: fileName,
             mime_type: attachment.type,
             file_size: attachment.size,
+            file_category: 'payment_proof',
+            description: 'Comprovante de pagamento',
+            is_payment_proof: true,
             uploaded_by: (await supabase.auth.getUser()).data.user?.id,
           }]);
 
@@ -160,7 +163,7 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
       }
 
       // Create payment record
-      const { error: paymentError } = await supabase
+      const { data: paymentResult, error: paymentError } = await supabase
         .from('payments')
         .insert([{
           account_id: account.id,
@@ -170,9 +173,18 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
           notes: data.notes || null,
           attachment_url: attachmentUrl,
           paid_by: (await supabase.auth.getUser()).data.user?.id,
-        }]);
+        }])
+        .select();
 
       if (paymentError) throw paymentError;
+
+      // If there's an attachment, link it to the payment
+      if (attachment && paymentResult && paymentResult.length > 0) {
+        await supabase
+          .from('attachments')
+          .update({ payment_id: paymentResult[0].id })
+          .eq('file_path', attachmentUrl);
+      }
 
       // Update account status
       const { error: updateError } = await supabase

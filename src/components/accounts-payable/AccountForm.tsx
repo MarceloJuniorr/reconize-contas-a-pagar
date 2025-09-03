@@ -229,6 +229,8 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
               file_path: fileName,
               mime_type: file.type,
               file_size: file.size,
+              file_category: 'account_document',
+              description: `Anexo da conta: ${data.description}`,
               uploaded_by: (await supabase.auth.getUser()).data.user?.id,
             }]);
         }

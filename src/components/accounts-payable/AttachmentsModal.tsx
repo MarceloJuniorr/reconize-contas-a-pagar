@@ -15,6 +15,9 @@ interface Attachment {
   created_at: string;
   source: 'account' | 'payment';
   payment_date?: string;
+  description?: string;
+  file_category?: string;
+  uploader_name?: string;
 }
 
 interface AttachmentsModalProps {

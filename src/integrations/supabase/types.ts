@@ -124,31 +124,46 @@ export type Database = {
         Row: {
           account_id: string | null
           created_at: string | null
+          description: string | null
+          file_category: string | null
           file_path: string
           file_size: number | null
           filename: string
           id: string
+          is_payment_proof: boolean | null
           mime_type: string | null
+          payment_id: string | null
+          updated_at: string | null
           uploaded_by: string | null
         }
         Insert: {
           account_id?: string | null
           created_at?: string | null
+          description?: string | null
+          file_category?: string | null
           file_path: string
           file_size?: number | null
           filename: string
           id?: string
+          is_payment_proof?: boolean | null
           mime_type?: string | null
+          payment_id?: string | null
+          updated_at?: string | null
           uploaded_by?: string | null
         }
         Update: {
           account_id?: string | null
           created_at?: string | null
+          description?: string | null
+          file_category?: string | null
           file_path?: string
           file_size?: number | null
           filename?: string
           id?: string
+          is_payment_proof?: boolean | null
           mime_type?: string | null
+          payment_id?: string | null
+          updated_at?: string | null
           uploaded_by?: string | null
         }
         Relationships: [
@@ -157,6 +172,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachments_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
           {
@@ -425,6 +447,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_account_attachments: {
+        Args: { p_account_id: string }
+        Returns: {
+          created_at: string
+          description: string
+          file_category: string
+          file_path: string
+          file_size: number
+          filename: string
+          id: string
+          is_payment_proof: boolean
+          mime_type: string
+          payment_date: string
+          payment_id: string
+          source: string
+          updated_at: string
+          uploaded_by: string
+          uploader_name: string
+        }[]
+      }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]

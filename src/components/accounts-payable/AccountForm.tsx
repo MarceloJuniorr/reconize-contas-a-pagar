@@ -404,6 +404,20 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
 
             <FormField
               control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descrição *</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Ex: Conta de luz, Material de escritório" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="payment_type"
               render={({ field }) => (
                 <FormItem>
@@ -425,21 +439,16 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
                 </FormItem>
               )}
             />
+          </CardContent>
+        </Card>
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descrição *</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Ex: Conta de luz, Material de escritório" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
+        {/* Valor, Vencimento e Observações */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Valores e Vencimento</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}

@@ -443,64 +443,6 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
         </Card>
 
 
-        {/* Valor, Vencimento e Observações */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Valores e Vencimento</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        {...field}
-                        placeholder="0,00"
-                        onChange={(e) => {
-                          const formatted = formatCurrency(e.target.value);
-                          field.onChange(formatted);
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="due_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Data de Vencimento *</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="observations"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Observações</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={3} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
 
         {/* Campos Específicos por Tipo de Pagamento */}
         {paymentType === 'boleto' && (
@@ -761,6 +703,65 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
             </CardContent>
           </Card>
         )}
+
+        {/* Valor, Vencimento e Observações */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Valores e Vencimento</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field}
+                        placeholder="0,00"
+                        onChange={(e) => {
+                          const formatted = formatCurrency(e.target.value);
+                          field.onChange(formatted);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="due_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Vencimento *</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="observations"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observações</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} rows={3} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
 
         {/* Anexos */}
         <Card>

@@ -57,6 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Verificar se usuário tem pelo menos um papel
+  useEffect(() => {
+    if (user && userRoles.length === 0 && !loading) {
+      // Se o usuário está logado mas não tem papéis, fazer logout
+      signOut();
+      toast({
+        title: "Acesso negado",
+        description: "Sua conta ainda não foi ativada por um administrador.",
+        variant: "destructive",
+      });
+    }
+  }, [user, userRoles, loading]);
+
   const fetchUserRoles = async (userId: string) => {
     try {
       const { data } = await supabase

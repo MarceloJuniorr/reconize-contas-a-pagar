@@ -5,6 +5,7 @@ import { LayoutDashboard, FileText, Building2, MapPin, LogOut, Users, Menu } fro
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
 const Layout = () => {
   const {
     signOut,
@@ -62,34 +63,38 @@ const Layout = () => {
                 <h1 className="text-xl font-bold text-sidebar-foreground">RECONIZE</h1>
               </div>
               
-              <nav className="px-4 space-y-2 flex-1">
-                {navigation.map(item => {
-                  const Icon = item.icon;
-                  const isActive = location.pathname === item.href;
-                  
-                  if (item.name === 'Sair') {
-                    return <button
-                      key={item.name}
-                      onClick={() => {
-                        handleSignOut();
-                        setMobileMenuOpen(false);
-                      }}
-                      className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left">
-                        <Icon className="h-4 w-4" />
-                        {item.name}
-                      </button>;
-                  }
-                  
-                  return <Link 
-                    key={item.name} 
-                    to={item.href} 
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn('flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors', isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground')}>
-                      <Icon className="h-4 w-4" />
-                      {item.name}
-                    </Link>;
-                })}
-              </nav>
+               <nav className="px-4 space-y-2 flex-1">
+                 {navigation.map(item => {
+                   const Icon = item.icon;
+                   const isActive = location.pathname === item.href;
+                   
+                   if (item.name === 'Sair') {
+                     return <button
+                       key={item.name}
+                       onClick={() => {
+                         handleSignOut();
+                         setMobileMenuOpen(false);
+                       }}
+                       className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left">
+                         <Icon className="h-4 w-4" />
+                         {item.name}
+                       </button>;
+                   }
+                   
+                   return <Link 
+                     key={item.name} 
+                     to={item.href} 
+                     onClick={() => setMobileMenuOpen(false)}
+                     className={cn('flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors', isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground')}>
+                       <Icon className="h-4 w-4" />
+                       {item.name}
+                     </Link>;
+                 })}
+                 
+                 <div className="px-3 py-2">
+                   <ChangePasswordModal />
+                 </div>
+               </nav>
             </div>
           </SheetContent>
         </Sheet>
@@ -102,27 +107,31 @@ const Layout = () => {
             <h1 className="text-xl font-bold text-sidebar-foreground">RECONIZE</h1>
           </div>
           
-          <nav className="px-4 space-y-2 flex-1">
-            {navigation.map(item => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.href;
-              
-              if (item.name === 'Sair') {
-                return <button
-                  key={item.name}
-                  onClick={handleSignOut}
-                  className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left">
-                    <Icon className="h-4 w-4" />
-                    {item.name}
-                  </button>;
-              }
-              
-              return <Link key={item.name} to={item.href} className={cn('flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors', isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground')}>
-                    <Icon className="h-4 w-4" />
-                    {item.name}
-                  </Link>;
-            })}
-          </nav>
+           <nav className="px-4 space-y-2 flex-1">
+             {navigation.map(item => {
+               const Icon = item.icon;
+               const isActive = location.pathname === item.href;
+               
+               if (item.name === 'Sair') {
+                 return <button
+                   key={item.name}
+                   onClick={handleSignOut}
+                   className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left">
+                     <Icon className="h-4 w-4" />
+                     {item.name}
+                   </button>;
+               }
+               
+               return <Link key={item.name} to={item.href} className={cn('flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors', isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground')}>
+                     <Icon className="h-4 w-4" />
+                     {item.name}
+                   </Link>;
+             })}
+             
+             <div className="px-3 py-2">
+               <ChangePasswordModal />
+             </div>
+           </nav>
         </div>
 
         {/* Main content */}

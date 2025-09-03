@@ -281,9 +281,18 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
     const dueFactor = parseInt(campo5.substring(0, 4));
     if (dueFactor === 0) return null;
     
-    // Data base: 07/10/1997
-    const baseDate = new Date(1997, 9, 7);
-    const dueDate = new Date(baseDate.getTime() + (dueFactor * 24 * 60 * 60 * 1000));
+    let dueDate: Date;
+    
+    // Lógica do fator de vencimento com reinício em 2025
+    if (dueFactor >= 1000) {
+      // A partir de 22/02/2025: data = 22/02/2025 + (fator - 1000) dias
+      const newBaseDate = new Date(2025, 1, 22); // Fevereiro é mês 1 (0-indexado)
+      dueDate = new Date(newBaseDate.getTime() + ((dueFactor - 1000) * 24 * 60 * 60 * 1000));
+    } else {
+      // Até 21/02/2025: data = 07/10/1997 + fator dias
+      const oldBaseDate = new Date(1997, 9, 7); // Outubro é mês 9 (0-indexado)
+      dueDate = new Date(oldBaseDate.getTime() + (dueFactor * 24 * 60 * 60 * 1000));
+    }
     
     return dueDate.toISOString().split('T')[0];
   };

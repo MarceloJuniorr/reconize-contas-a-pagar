@@ -124,7 +124,9 @@ export const AccountsList = ({ accounts, loading, onUpdate }: AccountsListProps)
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    // Evita problemas de timezone parseando a data diretamente
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
   };
 
   const getStatusColor = (status: string) => {

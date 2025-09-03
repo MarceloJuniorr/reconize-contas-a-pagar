@@ -209,7 +209,13 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
                   <span className="font-medium">Valor Original:</span> {formatAccountCurrency(account.amount)}
                 </div>
                 <div>
-                  <span className="font-medium">Vencimento:</span> {new Date(account.due_date).toLocaleDateString('pt-BR')}
+                  <span className="font-medium">Vencimento:</span> {
+                    // Formatar data evitando problemas de timezone
+                    (() => {
+                      const [year, month, day] = account.due_date.split('-');
+                      return `${day}/${month}/${year}`;
+                    })()
+                  }
                 </div>
                 <div className="col-span-2">
                   <span className="font-medium">Método de Pagamento:</span> {getPaymentMethodLabel(getPaymentMethodFromAccount())}

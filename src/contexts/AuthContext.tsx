@@ -204,13 +204,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      // Limpar dados locais primeiro
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      
+      // Fazer logout do Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Logout error:', error);
+      }
+      
       toast({
-        variant: "destructive",
-        title: "Erro ao sair",
-        description: error.message,
+        title: "Logout realizado", 
+        description: "Você foi desconectado com sucesso.",
       });
+      
+      // Forçar redirecionamento para login
+      window.location.href = '/auth';
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Mesmo em caso de erro, limpar dados locais e redirecionar
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      window.location.href = '/auth';
     }
   };
 

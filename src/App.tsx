@@ -31,7 +31,6 @@ const App = () => (
               </ProtectedRoute>
             }>
               <Route index element={<Index />} />
-              {/* Placeholder routes for future pages */}
               <Route path="accounts" element={<AccountsPayable />} />
               <Route path="suppliers" element={<Suppliers />} />
               <Route path="cost-centers" element={<CostCenters />} />

@@ -19,6 +19,7 @@ const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   }
 
   if (!user) {
+    // Redirecionamento imediato para login
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 

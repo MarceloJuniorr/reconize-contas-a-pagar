@@ -175,14 +175,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // Limpar dados locais primeiro
+      setUser(null);
+      setSession(null);
       setUserRoles([]);
+      
+      // Fazer logout do Supabase
+      await supabase.auth.signOut();
+      
       toast({
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso.",
       });
+      
+      // Forçar redirecionamento para login
+      window.location.href = '/auth';
     } catch (error) {
       console.error('Sign out error:', error);
+      // Mesmo em caso de erro, limpar dados locais e redirecionar
+      setUser(null);
+      setSession(null); 
+      setUserRoles([]);
+      window.location.href = '/auth';
     }
   };
 

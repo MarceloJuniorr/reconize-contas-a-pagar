@@ -118,7 +118,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
         
         if (filters.dueDateUntil) {
           const untilDate = new Date(filters.dueDateUntil);
-          untilDate.setHours(0, 0, 0, 0);
+          untilDate.setHours(23, 59, 59, 999); // Incluir o dia inteiro até o final
           if (accountDate > untilDate) {
             return false;
           }

@@ -15,6 +15,7 @@ interface CSVRow {
   vencimento: string;
   tipo_pagamento: string;
   centro_custo: string;
+  dados_pagamento?: string; // linha digitável do boleto ou chave pix
 }
 
 interface ProcessResult {
@@ -201,15 +202,21 @@ export const CSVImport = ({ onSuccess }: CSVImportProps) => {
           }
 
           // Criar conta a pagar
+          const paymentType = validatePaymentType(row.tipo_pagamento);
           const accountData = {
             supplier_id: supplierId,
             cost_center_id: costCenterId,
-            payment_type: validatePaymentType(row.tipo_pagamento),
+            payment_type: paymentType,
             description: row.descricao,
             amount: parseAmount(row.valor),
             due_date: parseDate(row.vencimento),
             status: 'em_aberto' as const,
             created_by: (await supabase.auth.getUser()).data.user?.id,
+            // Campos específicos do tipo de pagamento
+            boleto_barcode: paymentType === 'boleto' ? row.dados_pagamento : null,
+            pix_key: paymentType === 'pix' ? row.dados_pagamento : null,
+            pix_receiver_name: paymentType === 'pix' && supplierId ? 
+              (await supabase.from('suppliers').select('name').eq('id', supplierId).single()).data?.name : null,
           };
 
           const { error } = await supabase
@@ -270,8 +277,9 @@ export const CSVImport = ({ onSuccess }: CSVImportProps) => {
         <CardContent className="space-y-4">
           <div className="text-sm text-muted-foreground space-y-2">
             <p><strong>Formato esperado do CSV:</strong></p>
-            <p>Colunas: nome_fornecedor, cnpj_cpf, descricao, valor, vencimento, tipo_pagamento, centro_custo</p>
+            <p>Colunas: nome_fornecedor, cnpj_cpf, descricao, valor, vencimento, tipo_pagamento, centro_custo, dados_pagamento</p>
             <p><strong>Tipos de pagamento:</strong> boleto, pix, transferencia, cartao</p>
+            <p><strong>Dados de pagamento:</strong> linha digitável (boleto) ou chave PIX</p>
             <p><strong>Formato de data:</strong> DD/MM/YYYY</p>
             <p><strong>Formato de valor:</strong> 1000,50 ou 1.000,50</p>
           </div>

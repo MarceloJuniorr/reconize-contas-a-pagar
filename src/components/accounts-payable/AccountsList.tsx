@@ -270,14 +270,13 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
   const getStatusColor = (status: string, dueDate: string) => {
     if (status === 'em_aberto') {
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const todayStr = today.getFullYear() + '-' + 
+        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(today.getDate()).padStart(2, '0');
       
-      const due = new Date(dueDate);
-      due.setHours(0, 0, 0, 0);
-      
-      if (due.getTime() === today.getTime()) {
+      if (dueDate === todayStr) {
         return 'warning'; // Vence hoje - amarelo
-      } else if (due.getTime() < today.getTime()) {
+      } else if (dueDate < todayStr) {
         return 'destructive'; // Vencida - vermelho
       }
       return 'default'; // Em aberto - azul
@@ -296,14 +295,13 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
   const getStatusLabel = (status: string, dueDate: string) => {
     if (status === 'em_aberto') {
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const todayStr = today.getFullYear() + '-' + 
+        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(today.getDate()).padStart(2, '0');
       
-      const due = new Date(dueDate);
-      due.setHours(0, 0, 0, 0);
-      
-      if (due.getTime() === today.getTime()) {
+      if (dueDate === todayStr) {
         return 'Vence Hoje';
-      } else if (due.getTime() < today.getTime()) {
+      } else if (dueDate < todayStr) {
         return 'Vencida';
       }
       return 'Em Aberto';

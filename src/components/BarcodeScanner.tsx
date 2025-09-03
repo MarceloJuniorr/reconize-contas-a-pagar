@@ -15,18 +15,37 @@ interface BarcodeScannerProps {
 export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps) => {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [permissionState, setPermissionState] = useState<'loading' | 'granted' | 'denied' | 'error'>('loading');
+  const [permissionState, setPermissionState] = useState<'waiting' | 'loading' | 'granted' | 'denied' | 'error' | 'https-required'>('waiting');
   const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
-      requestCameraPermission();
+      checkEnvironment();
     } else {
       cleanup();
     }
 
     return () => cleanup();
   }, [isOpen]);
+
+  const checkEnvironment = () => {
+    // Verificar se está em HTTPS (obrigatório para câmera no mobile)
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      console.error('HTTPS é obrigatório para câmera no mobile');
+      setPermissionState('https-required');
+      return;
+    }
+
+    // Verificar suporte do navegador
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error('MediaDevices não suportado');
+      setPermissionState('error');
+      return;
+    }
+
+    // Pronto para solicitar permissão quando usuário clicar
+    setPermissionState('waiting');
+  };
 
   const cleanup = () => {
     if (scannerRef.current) {
@@ -40,22 +59,43 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
   };
 
   const requestCameraPermission = async () => {
+    console.log('Iniciando solicitação de permissão da câmera...');
+    console.log('User Agent:', navigator.userAgent);
+    console.log('Protocolo:', location.protocol);
+    console.log('Hostname:', location.hostname);
+    
     try {
       setPermissionState('loading');
       
       // Verificar se o navegador suporta câmera
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('MediaDevices não suportado pelo navegador');
         setPermissionState('error');
         return;
       }
 
-      // Solicitar permissão explicitamente
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } // Preferir câmera traseira
-      });
+      console.log('Solicitando acesso à câmera...');
+      
+      // Tentar câmera traseira primeiro, fallback para frontal
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: { exact: 'environment' } // Câmera traseira obrigatória
+          } 
+        });
+        console.log('Câmera traseira obtida com sucesso');
+      } catch (envError) {
+        console.warn('Câmera traseira não disponível, tentando qualquer câmera:', envError);
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true 
+        });
+        console.log('Câmera alternativa obtida com sucesso');
+      }
       
       streamRef.current = stream;
       setPermissionState('granted');
+      console.log('Permissão concedida, inicializando scanner...');
       
       // Parar o stream temporário - o html5-qrcode criará o próprio
       stream.getTracks().forEach(track => track.stop());
@@ -66,18 +106,31 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       }, 100);
       
     } catch (error: any) {
-      console.error('Erro de permissão da câmera:', error);
+      console.error('Erro detalhado de permissão da câmera:', error);
+      console.error('Nome do erro:', error.name);
+      console.error('Mensagem do erro:', error.message);
       
       if (error.name === 'NotAllowedError') {
+        console.error('Permissão negada pelo usuário');
         setPermissionState('denied');
       } else if (error.name === 'NotFoundError') {
+        console.error('Câmera não encontrada no dispositivo');
         setPermissionState('error');
         toast({
           title: "Câmera não encontrada",
           description: "Seu dispositivo não possui uma câmera disponível.",
           variant: "destructive",
         });
+      } else if (error.name === 'NotReadableError') {
+        console.error('Câmera já está sendo usada por outro aplicativo');
+        setPermissionState('error');
+        toast({
+          title: "Câmera em uso",
+          description: "A câmera está sendo usada por outro aplicativo.",
+          variant: "destructive",
+        });
       } else {
+        console.error('Erro desconhecido:', error);
         setPermissionState('error');
         toast({
           title: "Erro de câmera",
@@ -157,12 +210,56 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
 
   const handleClose = () => {
     cleanup();
-    setPermissionState('loading');
+    setPermissionState('waiting');
     onClose();
   };
 
   const renderContent = () => {
     switch (permissionState) {
+      case 'waiting':
+        return (
+          <Card>
+            <CardContent className="p-8">
+              <div className="text-center space-y-4">
+                <Camera className="h-12 w-12 mx-auto text-primary" />
+                <div>
+                  <h3 className="font-medium">Iniciar Scanner</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Clique no botão abaixo para solicitar acesso à câmera
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    É necessário permitir o acesso para escanear códigos de barras
+                  </p>
+                </div>
+                <Button onClick={requestCameraPermission} className="w-full">
+                  <Camera className="h-4 w-4 mr-2" />
+                  Solicitar Acesso à Câmera
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 'https-required':
+        return (
+          <Card>
+            <CardContent className="p-8">
+              <div className="text-center space-y-4">
+                <AlertCircle className="h-12 w-12 mx-auto text-destructive" />
+                <div>
+                  <h3 className="font-medium">HTTPS Necessário</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    O acesso à câmera requer conexão segura (HTTPS)
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Certifique-se de que está acessando o site via HTTPS
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
       case 'loading':
         return (
           <Card>
@@ -172,7 +269,10 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
                 <div>
                   <h3 className="font-medium">Solicitando permissão</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Permita o acesso à câmera para escanear o código de barras
+                    Permita o acesso à câmera na janela que apareceu
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    No mobile, o popup pode aparecer na parte superior da tela
                   </p>
                 </div>
               </div>

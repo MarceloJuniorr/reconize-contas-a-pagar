@@ -87,17 +87,29 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
   });
 
   const paymentType = form.watch('payment_type');
+  const supplierId = form.watch('supplier_id');
 
   useEffect(() => {
     fetchSuppliers();
     fetchCostCenters();
   }, []);
 
+  // Auto-populate PIX key when supplier changes and payment type is PIX
+  useEffect(() => {
+    if (paymentType === 'pix' && supplierId && !initialData) {
+      const supplier = suppliers.find((s: any) => s.id === supplierId);
+      if (supplier?.pix_keys && supplier.pix_keys.length > 0) {
+        form.setValue('pix_key', supplier.pix_keys[0]);
+        form.setValue('pix_receiver_name', supplier.name);
+      }
+    }
+  }, [paymentType, supplierId, suppliers, form, initialData]);
+
   const fetchSuppliers = async () => {
     try {
       const { data, error } = await supabase
         .from('suppliers')
-        .select('id, name')
+        .select('id, name, pix_keys')
         .eq('active', true)
         .order('name');
 
@@ -235,6 +247,98 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
       maximumFractionDigits: 2,
     });
     return formattedValue;
+  };
+
+  const parseBoletoBarcode = (barcode: string) => {
+    try {
+      // Remove espaços e caracteres não numéricos
+      const cleanBarcode = barcode.replace(/\D/g, '');
+      
+      // Verifica se é linha digitável (47 dígitos) ou código de barras (44 dígitos)
+      if (cleanBarcode.length === 47) {
+        // Linha digitável
+        const dueDate = extractDueDateFromDigitableLine(cleanBarcode);
+        const amount = extractAmountFromDigitableLine(cleanBarcode);
+        return { dueDate, amount };
+      } else if (cleanBarcode.length === 44) {
+        // Código de barras
+        const dueDate = extractDueDateFromBarcode(cleanBarcode);
+        const amount = extractAmountFromBarcode(cleanBarcode);
+        return { dueDate, amount };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Erro ao processar boleto:', error);
+      return null;
+    }
+  };
+
+  const extractDueDateFromDigitableLine = (line: string) => {
+    // Extrai o fator de vencimento da linha digitável (posições 33-36)
+    const dueFactor = parseInt(line.substring(33, 37));
+    if (dueFactor === 0) return null;
+    
+    // Data base: 07/10/1997
+    const baseDate = new Date(1997, 9, 7);
+    const dueDate = new Date(baseDate.getTime() + (dueFactor * 24 * 60 * 60 * 1000));
+    
+    return dueDate.toISOString().split('T')[0];
+  };
+
+  const extractAmountFromDigitableLine = (line: string) => {
+    // Extrai o valor da linha digitável (posições 37-47)
+    const amountStr = line.substring(37, 47);
+    const amount = parseInt(amountStr) / 100;
+    
+    return amount > 0 ? amount.toFixed(2).replace('.', ',') : null;
+  };
+
+  const extractDueDateFromBarcode = (barcode: string) => {
+    // Extrai o fator de vencimento do código de barras (posições 5-8)
+    const dueFactor = parseInt(barcode.substring(5, 9));
+    if (dueFactor === 0) return null;
+    
+    // Data base: 07/10/1997
+    const baseDate = new Date(1997, 9, 7);
+    const dueDate = new Date(baseDate.getTime() + (dueFactor * 24 * 60 * 60 * 1000));
+    
+    return dueDate.toISOString().split('T')[0];
+  };
+
+  const extractAmountFromBarcode = (barcode: string) => {
+    // Extrai o valor do código de barras (posições 9-18)
+    const amountStr = barcode.substring(9, 19);
+    const amount = parseInt(amountStr) / 100;
+    
+    return amount > 0 ? amount.toFixed(2).replace('.', ',') : null;
+  };
+
+  const handleBoletoChange = (value: string) => {
+    form.setValue('boleto_barcode', value);
+    
+    if (value.length >= 44) {
+      const parsedData = parseBoletoBarcode(value);
+      if (parsedData) {
+        if (parsedData.dueDate) {
+          form.setValue('due_date', parsedData.dueDate);
+        }
+        if (parsedData.amount) {
+          form.setValue('amount', parsedData.amount);
+        }
+        
+        toast({
+          title: "Boleto processado",
+          description: "Valor e data de vencimento extraídos automaticamente",
+        });
+      } else {
+        toast({
+          title: "Aviso",
+          description: "Não foi possível extrair os dados do boleto. Preencha manualmente.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (
@@ -403,7 +507,11 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
                   <FormItem>
                     <FormLabel>Código de Barras / Linha Digitável</FormLabel>
                     <FormControl>
-                      <Textarea {...field} placeholder="Cole aqui o código de barras ou linha digitável" />
+                      <Textarea 
+                        {...field} 
+                        placeholder="Cole aqui o código de barras ou linha digitável"
+                        onChange={(e) => handleBoletoChange(e.target.value)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

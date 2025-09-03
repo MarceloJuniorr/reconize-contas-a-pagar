@@ -160,12 +160,15 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
   const onSubmit = async (data: AccountFormData) => {
     setLoading(true);
     try {
+      // Converter valor formatado de volta para número
+      const numericAmount = parseFloat(data.amount.replace(/\./g, '').replace(',', '.'));
+      
       const accountData = {
         supplier_id: data.supplier_id,
         cost_center_id: data.cost_center_id,
         payment_type: data.payment_type,
         description: data.description,
-        amount: parseFloat(data.amount),
+        amount: numericAmount,
         due_date: data.due_date,
         observations: data.observations || null,
         boleto_barcode: data.payment_type === 'boleto' ? data.boleto_barcode : null,
@@ -294,7 +297,12 @@ export const AccountForm = ({ onSuccess, initialData }: AccountFormProps) => {
       dueDate = new Date(oldBaseDate.getTime() + (dueFactor * 24 * 60 * 60 * 1000));
     }
     
-    return dueDate.toISOString().split('T')[0];
+    // Garantir que retorna no formato correto para input date (YYYY-MM-DD)
+    const year = dueDate.getFullYear();
+    const month = String(dueDate.getMonth() + 1).padStart(2, '0');
+    const day = String(dueDate.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
   };
 
   const extractAmountFromDigitableLine = (line: string) => {

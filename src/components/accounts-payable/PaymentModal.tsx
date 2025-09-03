@@ -186,13 +186,7 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
           .eq('file_path', attachmentUrl);
       }
 
-      // Update account status
-      const { error: updateError } = await supabase
-        .from('accounts_payable')
-        .update({ status: 'pago' })
-        .eq('id', account.id);
-
-      if (updateError) throw updateError;
+      // Account status will be automatically updated to 'pago' by database trigger
 
       onSuccess();
     } catch (error: any) {

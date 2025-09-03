@@ -53,10 +53,10 @@ export const CSVImport = ({ onSuccess }: CSVImportProps) => {
 
   const parseCSV = (text: string): CSVRow[] => {
     const lines = text.split('\n').filter(line => line.trim());
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const headers = lines[0].split(';').map(h => h.trim().toLowerCase());
     
     return lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+      const values = line.split(';').map(v => v.trim().replace(/"/g, ''));
       const row: any = {};
       
       headers.forEach((header, index) => {
@@ -277,7 +277,7 @@ export const CSVImport = ({ onSuccess }: CSVImportProps) => {
         <CardContent className="space-y-4">
           <div className="text-sm text-muted-foreground space-y-2">
             <p><strong>Formato esperado do CSV:</strong></p>
-            <p>Colunas: nome_fornecedor, cnpj_cpf, descricao, valor, vencimento, tipo_pagamento, centro_custo, dados_pagamento</p>
+            <p>Colunas separadas por ponto e vírgula (;): nome_fornecedor; cnpj_cpf; descricao; valor; vencimento; tipo_pagamento; centro_custo; dados_pagamento</p>
             <p><strong>Tipos de pagamento:</strong> boleto, pix, transferencia, cartao</p>
             <p><strong>Dados de pagamento:</strong> linha digitável (boleto) ou chave PIX</p>
             <p><strong>Formato de data:</strong> DD/MM/YYYY</p>

@@ -94,17 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         roles: userRoles
       });
 
-      // Se o usuário não tem roles, fazer logout automático
-      if (userRoles.length === 0) {
-        setTimeout(async () => {
-          await supabase.auth.signOut();
-          toast({
-            title: "Acesso negado",
-            description: "Sua conta ainda não foi ativada por um administrador. Entre em contato com o suporte.",
-            variant: "destructive",
-          });
-        }, 100);
-      }
+      // Se chegou até aqui, o usuário já passou pela verificação no login
+      // Não fazer logout automático aqui
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
@@ -112,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -124,6 +115,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: error.message,
         });
         return { error };
+      }
+
+      // Verificar se o usuário tem roles ativos após login bem-sucedido
+      if (data.user) {
+        const { data: rolesData, error: rolesError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id);
+
+        if (rolesError) {
+          console.error('Erro ao verificar roles:', rolesError);
+          await supabase.auth.signOut();
+          toast({
+            variant: "destructive",
+            title: "Erro no login",
+            description: "Erro interno do sistema. Tente novamente.",
+          });
+          return { error: rolesError };
+        }
+
+        const userRoles = rolesData?.map(r => r.role) || [];
+        
+        // Se o usuário não tem roles, considerar inativo
+        if (userRoles.length === 0) {
+          await supabase.auth.signOut();
+          const inactiveError = new Error("Usuário inativo. Sua conta ainda não foi ativada por um administrador.");
+          toast({
+            variant: "destructive",
+            title: "Acesso negado",
+            description: "Usuário inativo. Sua conta ainda não foi ativada por um administrador.",
+          });
+          return { error: inactiveError };
+        }
       }
 
       return { error: null };

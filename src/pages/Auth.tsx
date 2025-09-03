@@ -21,10 +21,22 @@ const Auth = () => {
 
   useEffect(() => {
     const mode = searchParams.get('mode');
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+    
     if (mode === 'reset') {
-      setIsResetMode(true);
+      if (error === 'access_denied' && errorDescription?.includes('expired')) {
+        toast({
+          title: "Link expirado",
+          description: "O link de redefinição de senha expirou. Solicite um novo link.",
+          variant: "destructive"
+        });
+        setIsResetMode(false);
+      } else {
+        setIsResetMode(true);
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, toast]);
 
   if (loading) {
     return (
@@ -64,7 +76,7 @@ const Auth = () => {
 
     setIsLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(loginForm.email, {
-      redirectTo: `${window.location.origin}/auth?mode=reset`,
+      redirectTo: `https://reconize.supermercadoseujoao.com.br/auth?mode=reset`,
     });
 
     if (error) {

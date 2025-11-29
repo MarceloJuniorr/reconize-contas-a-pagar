@@ -510,21 +510,6 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     );
   }
 
-  if (filteredAccounts.length === 0 && accounts.length > 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">Nenhuma conta encontrada com os filtros aplicados.</p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={clearFilters}
-          className="mt-4"
-        >
-          Limpar todos os filtros
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <>

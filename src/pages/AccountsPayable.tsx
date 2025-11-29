@@ -19,6 +19,8 @@ interface DashboardStats {
   paidToday: number;
 }
 
+type DashboardFilter = 'all' | 'open' | 'overdue' | 'due_today' | 'due_tomorrow' | 'due_next_week' | 'paid_today';
+
 const AccountsPayable = () => {
   const [accounts, setAccounts] = useState([]);
   const [stats, setStats] = useState<DashboardStats>({
@@ -32,12 +34,17 @@ const AccountsPayable = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<DashboardFilter>('all');
   const { toast } = useToast();
 
-  const fetchAccounts = async (customDateFrom?: Date, customDateUntil?: Date) => {
+  const fetchAccounts = async (customDateFrom?: Date, customDateUntil?: Date, filter?: DashboardFilter) => {
     try {
-      console.log('fetchAccounts called with:', { customDateFrom, customDateUntil });
+      console.log('fetchAccounts called with:', { customDateFrom, customDateUntil, filter });
       
+      const today = new Date().toISOString().split('T')[0];
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
       let query = supabase
         .from('accounts_payable')
         .select(`
@@ -46,23 +53,55 @@ const AccountsPayable = () => {
           cost_centers(name, code)
         `);
 
-      // Se não há filtros customizados, usar o filtro padrão (hoje até próxima semana)
-      if (!customDateFrom && !customDateUntil) {
-        const today = new Date().toISOString().split('T')[0];
-        const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        query = query.or(`due_date.lt.${today},and(due_date.gte.${today},due_date.lte.${nextWeek})`);
-      } else {
-        // Aplicar filtros customizados se fornecidos
+      // Aplicar filtro do dashboard se fornecido
+      if (filter) {
+        switch (filter) {
+          case 'open':
+            query = query.eq('status', 'em_aberto');
+            break;
+          case 'overdue':
+            query = query.eq('status', 'em_aberto').lt('due_date', today);
+            break;
+          case 'due_today':
+            query = query.eq('status', 'em_aberto').eq('due_date', today);
+            break;
+          case 'due_tomorrow':
+            query = query.eq('status', 'em_aberto').eq('due_date', tomorrow);
+            break;
+          case 'due_next_week':
+            query = query.eq('status', 'em_aberto').gte('due_date', today).lte('due_date', nextWeek);
+            break;
+          case 'paid_today':
+            // Para mostrar contas pagas hoje, vamos buscar da tabela de payments
+            const { data: paidAccounts } = await supabase
+              .from('payments')
+              .select('account_id')
+              .eq('payment_date', today);
+            
+            if (paidAccounts && paidAccounts.length > 0) {
+              const accountIds = paidAccounts.map(p => p.account_id);
+              query = query.in('id', accountIds);
+            } else {
+              // Se não há pagamentos hoje, retornar vazio
+              setAccounts([]);
+              setLoading(false);
+              return;
+            }
+            break;
+        }
+      } else if (customDateFrom || customDateUntil) {
+        // Aplicar filtros customizados de data
         if (customDateFrom) {
           const fromDateStr = customDateFrom.toISOString().split('T')[0];
-          console.log('Filtering from date:', fromDateStr);
           query = query.gte('due_date', fromDateStr);
         }
         if (customDateUntil) {
           const untilDateStr = customDateUntil.toISOString().split('T')[0];
-          console.log('Filtering until date:', untilDateStr);
           query = query.lte('due_date', untilDateStr);
         }
+      } else {
+        // Filtro padrão (hoje até próxima semana)
+        query = query.or(`due_date.lt.${today},and(due_date.gte.${today},due_date.lte.${nextWeek})`);
       }
 
       const { data, error } = await query.order('due_date', { ascending: true });
@@ -169,6 +208,12 @@ const AccountsPayable = () => {
     }).format(value);
   };
 
+  const handleDashboardCardClick = (filter: DashboardFilter) => {
+    setActiveFilter(filter);
+    setLoading(true);
+    fetchAccounts(undefined, undefined, filter);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -214,7 +259,10 @@ const AccountsPayable = () => {
 
       {/* Dashboard Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'open' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => handleDashboardCardClick('open')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total em Aberto</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -227,7 +275,10 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'overdue' ? 'ring-2 ring-destructive' : ''}`}
+          onClick={() => handleDashboardCardClick('overdue')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Vencidas</CardTitle>
             <AlertTriangle className="h-4 w-4 text-destructive" />
@@ -240,7 +291,10 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_today' ? 'ring-2 ring-orange-500' : ''}`}
+          onClick={() => handleDashboardCardClick('due_today')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Vencendo Hoje</CardTitle>
             <Calendar className="h-4 w-4 text-orange-500" />
@@ -253,7 +307,10 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_tomorrow' ? 'ring-2 ring-yellow-500' : ''}`}
+          onClick={() => handleDashboardCardClick('due_tomorrow')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Vence Amanhã</CardTitle>
             <Calendar className="h-4 w-4 text-yellow-500" />
@@ -266,7 +323,10 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_next_week' ? 'ring-2 ring-blue-500' : ''}`}
+          onClick={() => handleDashboardCardClick('due_next_week')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Próxima Semana</CardTitle>
             <Calendar className="h-4 w-4 text-blue-500" />
@@ -279,7 +339,10 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_today' ? 'ring-2 ring-green-600' : ''}`}
+          onClick={() => handleDashboardCardClick('paid_today')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pago Hoje</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
@@ -295,17 +358,40 @@ const AccountsPayable = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Contas a Pagar</CardTitle>
+          <CardTitle>
+            Lista de Contas a Pagar
+            {activeFilter !== 'all' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="ml-2"
+                onClick={() => {
+                  setActiveFilter('all');
+                  setLoading(true);
+                  fetchAccounts();
+                }}
+              >
+                Limpar Filtro
+              </Button>
+            )}
+          </CardTitle>
           <CardDescription>
-            Visualize e gerencie todas as contas cadastradas
+            {activeFilter !== 'all' 
+              ? 'Mostrando contas filtradas pelo dashboard' 
+              : 'Visualize e gerencie todas as contas cadastradas'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
           <AccountsList 
             accounts={accounts} 
             loading={loading} 
-            onUpdate={() => fetchAccounts()}
+            onUpdate={() => {
+              fetchAccounts(undefined, undefined, activeFilter !== 'all' ? activeFilter : undefined);
+              fetchStats();
+            }}
             onDateFilterChange={(fromDate, untilDate) => {
+              setActiveFilter('all');
               console.log('Date filter changed:', { fromDate, untilDate });
               fetchAccounts(fromDate, untilDate);
             }}

@@ -175,6 +175,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "attachments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "view_contas_pagar"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "attachments_payment_id_fkey"
             columns: ["payment_id"]
             isOneToOne: false
@@ -315,6 +322,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "view_contas_pagar"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "payments_paid_by_fkey"
             columns: ["paid_by"]
             isOneToOne: false
@@ -444,7 +458,20 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      view_contas_pagar: {
+        Row: {
+          amount: number | null
+          code_payment: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string | null
+          payment_type: Database["public"]["Enums"]["payment_type"] | null
+          supplier_document: string | null
+          supplier_name: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_account_attachments: {

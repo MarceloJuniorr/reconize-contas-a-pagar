@@ -73,6 +73,64 @@ interface ColumnFilters {
   status: string;
 }
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const formatDate = (dateString: string) => {
+    // Para datas simples (YYYY-MM-DD) como due_date
+    if (dateString.includes('T')) {
+      // Para timestamps completos como created_at
+      return format(new Date(dateString), 'dd/MM/yyyy HH:mm');
+    } else {
+      // Para datas simples (YYYY-MM-DD)
+      const [year, month, day] = dateString.split('-');
+      return `${day}/${month}/${year}`;
+    }
+  };
+    const getStatusLabel = (status: string, dueDate: string) => {
+    if (status === 'em_aberto') {
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + 
+        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(today.getDate()).padStart(2, '0');
+      
+      if (dueDate === todayStr) {
+        return 'Vence Hoje';
+      } else if (dueDate < todayStr) {
+        return 'Vencida';
+      }
+      return 'Em Aberto';
+    }
+    
+    switch (status) {
+      case 'pago':
+        return 'Pago';
+      case 'cancelado':
+        return 'Cancelado';
+      default:
+        return status;
+    }
+  };
+
+  const getPaymentTypeLabel = (type: string) => {
+    switch (type) {
+      case 'boleto':
+        return 'Boleto';
+      case 'cartao':
+        return 'Cartão';
+      case 'transferencia':
+        return 'Transferência';
+      case 'pix':
+        return 'PIX';
+      default:
+        return type;
+    }
+  };
+
 export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }: AccountsListProps) => {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -394,25 +452,6 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     setIsAttachmentsOpen(true);
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
-
-  const formatDate = (dateString: string) => {
-    // Para datas simples (YYYY-MM-DD) como due_date
-    if (dateString.includes('T')) {
-      // Para timestamps completos como created_at
-      return format(new Date(dateString), 'dd/MM/yyyy HH:mm');
-    } else {
-      // Para datas simples (YYYY-MM-DD)
-      const [year, month, day] = dateString.split('-');
-      return `${day}/${month}/${year}`;
-    }
-  };
-
   const getStatusColor = (status: string, dueDate: string) => {
     if (status === 'em_aberto') {
       const today = new Date();
@@ -438,45 +477,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     }
   };
 
-  const getStatusLabel = (status: string, dueDate: string) => {
-    if (status === 'em_aberto') {
-      const today = new Date();
-      const todayStr = today.getFullYear() + '-' + 
-        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(today.getDate()).padStart(2, '0');
-      
-      if (dueDate === todayStr) {
-        return 'Vence Hoje';
-      } else if (dueDate < todayStr) {
-        return 'Vencida';
-      }
-      return 'Em Aberto';
-    }
-    
-    switch (status) {
-      case 'pago':
-        return 'Pago';
-      case 'cancelado':
-        return 'Cancelado';
-      default:
-        return status;
-    }
-  };
 
-  const getPaymentTypeLabel = (type: string) => {
-    switch (type) {
-      case 'boleto':
-        return 'Boleto';
-      case 'cartao':
-        return 'Cartão';
-      case 'transferencia':
-        return 'Transferência';
-      case 'pix':
-        return 'PIX';
-      default:
-        return type;
-    }
-  };
 
   const isOverdue = (dueDate: string, status: string) => {
     if (status !== 'em_aberto') return false;

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Edit, Eye, CheckCircle, X, Download, History, Filter, CalendarIcon, Paperclip } from 'lucide-react';
+import { Edit, Eye, CheckCircle, X, Download, History, Filter, CalendarIcon, Paperclip, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -60,6 +60,19 @@ interface Filters {
   dueDateUntil: Date | undefined;
 }
 
+type SortField = 'description' | 'supplier' | 'cost_center' | 'payment_type' | 'amount' | 'due_date' | 'status';
+type SortDirection = 'asc' | 'desc' | null;
+
+interface ColumnFilters {
+  description: string;
+  supplier: string;
+  costCenter: string;
+  paymentType: string;
+  amount: string;
+  dueDate: string;
+  status: string;
+}
+
 export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }: AccountsListProps) => {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -76,6 +89,17 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     dueDateFrom: undefined,
     dueDateUntil: undefined,
   });
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({
+    description: '',
+    supplier: '',
+    costCenter: '',
+    paymentType: '',
+    amount: '',
+    dueDate: '',
+    status: '',
+  });
   const { toast } = useToast();
   const { hasRole } = useAuth();
 
@@ -89,9 +113,10 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     return { suppliers, costCenters, paymentTypes, statuses };
   }, [accounts]);
 
-  // Filter accounts based on selected filters
+  // Filter accounts based on selected filters and column filters
   const filteredAccounts = useMemo(() => {
-    return accounts.filter(account => {
+    let filtered = accounts.filter(account => {
+      // Existing filters
       if (filters.supplier !== 'all' && account.suppliers?.name !== filters.supplier) {
         return false;
       }
@@ -118,15 +143,84 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
         
         if (filters.dueDateUntil) {
           const untilDate = new Date(filters.dueDateUntil);
-          untilDate.setHours(23, 59, 59, 999); // Incluir o dia inteiro até o final
+          untilDate.setHours(23, 59, 59, 999);
           if (accountDate > untilDate) {
             return false;
           }
         }
       }
+
+      // Column filters
+      if (columnFilters.description && !account.description.toLowerCase().includes(columnFilters.description.toLowerCase())) {
+        return false;
+      }
+      if (columnFilters.supplier && !account.suppliers?.name.toLowerCase().includes(columnFilters.supplier.toLowerCase())) {
+        return false;
+      }
+      if (columnFilters.costCenter && !`${account.cost_centers?.code} - ${account.cost_centers?.name}`.toLowerCase().includes(columnFilters.costCenter.toLowerCase())) {
+        return false;
+      }
+      if (columnFilters.paymentType && !getPaymentTypeLabel(account.payment_type).toLowerCase().includes(columnFilters.paymentType.toLowerCase())) {
+        return false;
+      }
+      if (columnFilters.amount && !formatCurrency(account.amount).includes(columnFilters.amount)) {
+        return false;
+      }
+      if (columnFilters.dueDate && !formatDate(account.due_date).includes(columnFilters.dueDate)) {
+        return false;
+      }
+      if (columnFilters.status && !getStatusLabel(account.status, account.due_date).toLowerCase().includes(columnFilters.status.toLowerCase())) {
+        return false;
+      }
+
       return true;
     });
-  }, [accounts, filters]);
+
+    // Apply sorting
+    if (sortField && sortDirection) {
+      filtered = [...filtered].sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortField) {
+          case 'description':
+            aValue = a.description.toLowerCase();
+            bValue = b.description.toLowerCase();
+            break;
+          case 'supplier':
+            aValue = a.suppliers?.name.toLowerCase() || '';
+            bValue = b.suppliers?.name.toLowerCase() || '';
+            break;
+          case 'cost_center':
+            aValue = `${a.cost_centers?.code} - ${a.cost_centers?.name}`.toLowerCase();
+            bValue = `${b.cost_centers?.code} - ${b.cost_centers?.name}`.toLowerCase();
+            break;
+          case 'payment_type':
+            aValue = getPaymentTypeLabel(a.payment_type);
+            bValue = getPaymentTypeLabel(b.payment_type);
+            break;
+          case 'amount':
+            aValue = Number(a.amount);
+            bValue = Number(b.amount);
+            break;
+          case 'due_date':
+            aValue = new Date(a.due_date).getTime();
+            bValue = new Date(b.due_date).getTime();
+            break;
+          case 'status':
+            aValue = getStatusLabel(a.status, a.due_date);
+            bValue = getStatusLabel(b.status, b.due_date);
+            break;
+        }
+
+        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [accounts, filters, columnFilters, sortField, sortDirection]);
 
   // Calculate filtered accounts stats by payment type
   const filteredStats = useMemo(() => {
@@ -172,9 +266,44 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
       dueDateUntil: undefined,
     };
     setFilters(newFilters);
+    setColumnFilters({
+      description: '',
+      supplier: '',
+      costCenter: '',
+      paymentType: '',
+      amount: '',
+      dueDate: '',
+      status: '',
+    });
+    setSortField(null);
+    setSortDirection(null);
     if (onDateFilterChange) {
       onDateFilterChange(undefined);
     }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortField(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-40" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="h-4 w-4 ml-1" />;
+    }
+    return <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
   const handleViewDetails = (account: Account) => {
@@ -382,239 +511,17 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
 
   if (filteredAccounts.length === 0 && accounts.length > 0) {
     return (
-      <>
-        {/* Filtros */}
-        <div className="space-y-4 mb-6">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2"
-            >
-              <Filter className="h-4 w-4" />
-              Filtros
-            </Button>
-          {(filters.supplier !== 'all' || filters.costCenter !== 'all' || filters.paymentType !== 'all' || filters.status !== 'all' || 
-             (filters.dueDateFrom && filters.dueDateFrom.getTime() !== new Date().setHours(0,0,0,0)) ||
-             (filters.dueDateUntil && filters.dueDateUntil.getTime() !== new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime())) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="text-muted-foreground"
-            >
-              Limpar filtros
-            </Button>
-          )}
-          </div>
-
-          {showFilters && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Filtros</CardTitle>
-              </CardHeader>
-              <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                  {/* Filtro por Fornecedor */}
-                  <div className="space-y-2">
-                    <Label htmlFor="supplier-filter">Fornecedor</Label>
-                    <Select
-                      value={filters.supplier}
-                      onValueChange={(value) => setFilters(prev => ({ ...prev, supplier: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {filterOptions.suppliers.map(supplier => (
-                        <SelectItem key={supplier} value={supplier}>
-                          {supplier}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Filtro por Centro de Custo */}
-                  <div className="space-y-2">
-                    <Label htmlFor="cost-center-filter">Centro de Custo</Label>
-                    <Select
-                      value={filters.costCenter}
-                      onValueChange={(value) => setFilters(prev => ({ ...prev, costCenter: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {filterOptions.costCenters.map(costCenter => (
-                        <SelectItem key={costCenter} value={costCenter}>
-                          {costCenter}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Filtro por Tipo de Pagamento */}
-                  <div className="space-y-2">
-                    <Label htmlFor="payment-type-filter">Tipo</Label>
-                    <Select
-                      value={filters.paymentType}
-                      onValueChange={(value) => setFilters(prev => ({ ...prev, paymentType: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {filterOptions.paymentTypes.map(type => (
-                        <SelectItem key={type} value={type}>
-                          {getPaymentTypeLabel(type)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Filtro por Status */}
-                  <div className="space-y-2">
-                    <Label htmlFor="status-filter">Status</Label>
-                    <Select
-                      value={filters.status}
-                      onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                       {filterOptions.statuses.map(status => (
-                         <SelectItem key={status} value={status}>
-                           {status === 'em_aberto' ? 'Em Aberto' : status === 'pago' ? 'Pago' : status === 'cancelado' ? 'Cancelado' : status}
-                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Filtro por Vencimento */}
-                  <div className="space-y-2">
-                    <Label htmlFor="due-date-filter">Vencimento</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !filters.dueDateFrom && !filters.dueDateUntil && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {filters.dueDateFrom && filters.dueDateUntil 
-                            ? `${format(filters.dueDateFrom, "dd/MM/yyyy")} - ${format(filters.dueDateUntil, "dd/MM/yyyy")}`
-                            : "Selecionar período"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <div className="p-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <Label className="text-xs font-medium">Data inicial</Label>
-                              <Calendar
-                                mode="single"
-                                selected={filters.dueDateFrom}
-                                onSelect={(date) => {
-                                  if (date && filters.dueDateUntil && !validateDateRange(date, filters.dueDateUntil)) {
-                                    toast({
-                                      title: "Intervalo inválido",
-                                      description: "O intervalo de datas não pode ser maior que 3 meses",
-                                      variant: "destructive",
-                                    });
-                                    return;
-                                  }
-                                  setFilters(prev => ({ ...prev, dueDateFrom: date }));
-                                }}
-                                className={cn("p-0 pointer-events-auto")}
-                                disabled={(date) => {
-                                  if (!filters.dueDateUntil) return false;
-                                  return date > filters.dueDateUntil;
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs font-medium">Data final</Label>
-                              <Calendar
-                                mode="single"
-                                selected={filters.dueDateUntil}
-                                onSelect={(date) => {
-                                  if (date && filters.dueDateFrom && !validateDateRange(filters.dueDateFrom, date)) {
-                                    toast({
-                                      title: "Intervalo inválido",
-                                      description: "O intervalo de datas não pode ser maior que 3 meses",
-                                      variant: "destructive",
-                                    });
-                                    return;
-                                  }
-                                  const newDate = date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-                                  setFilters(prev => ({ ...prev, dueDateUntil: newDate }));
-                                  if (onDateFilterChange) {
-                                    onDateFilterChange(newDate);
-                                  }
-                                }}
-                                className={cn("p-0 pointer-events-auto")}
-                                disabled={(date) => {
-                                  if (!filters.dueDateFrom) return false;
-                                  return date < filters.dueDateFrom;
-                                }}
-                              />
-                            </div>
-                          </div>
-                          <div className="mt-3 pt-3 border-t">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const today = new Date();
-                                const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-                                setFilters(prev => ({ 
-                                  ...prev, 
-                                  dueDateFrom: today, 
-                                  dueDateUntil: nextWeek 
-                                }));
-                                if (onDateFilterChange) {
-                                  onDateFilterChange(nextWeek);
-                                }
-                              }}
-                              className="w-full"
-                            >
-                              Hoje + 7 dias (padrão)
-                            </Button>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          <div className="text-sm text-muted-foreground">
-            Mostrando {filteredAccounts.length} de {accounts.length} contas
-          </div>
-        </div>
-
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">Nenhuma conta encontrada com os filtros aplicados.</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Tente ajustar os filtros ou limpar para ver todas as contas.
-          </p>
-        </div>
-      </>
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">Nenhuma conta encontrada com os filtros aplicados.</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clearFilters}
+          className="mt-4"
+        >
+          Limpar todos os filtros
+        </Button>
+      </div>
     );
   }
 
@@ -895,14 +802,108 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Descrição</TableHead>
-              <TableHead>Fornecedor</TableHead>
-              <TableHead>Centro de Custo</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Valor</TableHead>
-              <TableHead>Vencimento</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('description')}>
+                <div className="flex items-center">
+                  Descrição
+                  {getSortIcon('description')}
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('supplier')}>
+                <div className="flex items-center">
+                  Fornecedor
+                  {getSortIcon('supplier')}
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('cost_center')}>
+                <div className="flex items-center">
+                  Centro de Custo
+                  {getSortIcon('cost_center')}
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('payment_type')}>
+                <div className="flex items-center">
+                  Tipo
+                  {getSortIcon('payment_type')}
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('amount')}>
+                <div className="flex items-center">
+                  Valor
+                  {getSortIcon('amount')}
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('due_date')}>
+                <div className="flex items-center">
+                  Vencimento
+                  {getSortIcon('due_date')}
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
+                <div className="flex items-center">
+                  Status
+                  {getSortIcon('status')}
+                </div>
+              </TableHead>
               <TableHead>Ações</TableHead>
+            </TableRow>
+            <TableRow>
+              <TableHead className="p-2">
+                <Input
+                  placeholder="Filtrar..."
+                  value={columnFilters.description}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, description: e.target.value }))}
+                  className="h-8"
+                />
+              </TableHead>
+              <TableHead className="p-2">
+                <Input
+                  placeholder="Filtrar..."
+                  value={columnFilters.supplier}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, supplier: e.target.value }))}
+                  className="h-8"
+                />
+              </TableHead>
+              <TableHead className="p-2">
+                <Input
+                  placeholder="Filtrar..."
+                  value={columnFilters.costCenter}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, costCenter: e.target.value }))}
+                  className="h-8"
+                />
+              </TableHead>
+              <TableHead className="p-2">
+                <Input
+                  placeholder="Filtrar..."
+                  value={columnFilters.paymentType}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, paymentType: e.target.value }))}
+                  className="h-8"
+                />
+              </TableHead>
+              <TableHead className="p-2">
+                <Input
+                  placeholder="Filtrar..."
+                  value={columnFilters.amount}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, amount: e.target.value }))}
+                  className="h-8"
+                />
+              </TableHead>
+              <TableHead className="p-2">
+                <Input
+                  placeholder="Filtrar..."
+                  value={columnFilters.dueDate}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, dueDate: e.target.value }))}
+                  className="h-8"
+                />
+              </TableHead>
+              <TableHead className="p-2">
+                <Input
+                  placeholder="Filtrar..."
+                  value={columnFilters.status}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, status: e.target.value }))}
+                  className="h-8"
+                />
+              </TableHead>
+              <TableHead className="p-2"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

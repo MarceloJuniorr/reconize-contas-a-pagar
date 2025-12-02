@@ -6,7 +6,6 @@ import { AccountForm } from '@/components/accounts-payable/AccountForm';
 import { AccountsList } from '@/components/accounts-payable/AccountsList';
 import { CSVImport } from '@/components/accounts-payable/CSVImport';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,7 +19,7 @@ interface DashboardStats {
   paidLast30Days: number;
 }
 
-type DashboardFilter = 'all' | 'open' | 'overdue' | 'due_today' | 'due_tomorrow' | 'due_next_week' | 'paid_today' | 'paid_last_60_days';
+type DashboardFilter = 'all' | 'open' | 'overdue' | 'due_today' | 'due_tomorrow' | 'due_next_week' | 'paid_today' | 'paid_last_30_days';
 
 const AccountsPayable = () => {
   const [accounts, setAccounts] = useState([]);
@@ -73,38 +72,27 @@ const AccountsPayable = () => {
           case 'due_next_week':
             query = query.eq('status', 'em_aberto').gte('due_date', today).lte('due_date', nextWeek);
             break;
-          case 'paid_today':
+          case 'paid_today': {
             // Para mostrar contas pagas hoje, vamos buscar da tabela de payments
-            const { data: paidAccounts } = await supabase
-              .from('payments')
-              .select('account_id')
-              .eq('payment_date', today);
-
-            if (paidAccounts && paidAccounts.length > 0) {
-              const accountIds = paidAccounts.map(p => p.account_id);
-              query = query.in('id', accountIds);
-            } else {
-              setAccounts([]);
-              setLoading(false);
-              return;
-            }
+            query = supabase
+              .from('accounts_payable')
+              .select(`
+                  *, 
+                  suppliers(name), 
+                  cost_centers(name,code), 
+                  payments!inner(account_id) 
+                  `)
+              .eq('payments.payment_date', today);
             break;
-          case 'paid_last_60_days':
-            const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            const { data: paid60DaysAccounts } = await supabase
-              .from('payments')
-              .select('account_id')
-              .gte('payment_date', sixtyDaysAgo);
-
-            if (paid60DaysAccounts && paid60DaysAccounts.length > 0) {
-              const accountIds = [...new Set(paid60DaysAccounts.map(p => p.account_id))];
-              query = query.in('id', accountIds);
-            } else {
-              setAccounts([]);
-              setLoading(false);
-              return;
-            }
+          }
+          case 'paid_last_30_days': {
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            query = supabase
+              .from('accounts_payable')
+              .select('*, suppliers(name), cost_centers(name,code), payments!inner(payment_date)')
+              .gte('payments.payment_date', thirtyDaysAgo);
             break;
+          }
         }
       } else if (customDateFrom || customDateUntil) {
         // Aplicar filtros customizados de data
@@ -381,8 +369,8 @@ const AccountsPayable = () => {
         </Card>
 
         <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_last_60_days' ? 'ring-2 ring-emerald-500' : ''}`}
-          onClick={() => handleDashboardCardClick('paid_last_60_days')}
+          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_last_30_days' ? 'ring-2 ring-emerald-500' : ''}`}
+          onClick={() => handleDashboardCardClick('paid_last_30_days')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pagos 30 Dias</CardTitle>
@@ -391,7 +379,7 @@ const AccountsPayable = () => {
           <CardContent>
             <div className="text-2xl font-bold text-emerald-500">{formatCurrency(stats.paidLast30Days)}</div>
             <p className="text-xs text-muted-foreground">
-              Últimos 30 dias
+              Últimos 30 dias pagos
             </p>
           </CardContent>
         </Card>

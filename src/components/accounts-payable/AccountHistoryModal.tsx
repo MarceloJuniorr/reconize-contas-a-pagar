@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -57,13 +58,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (open && accountId) {
-      fetchHistory();
-    }
-  }, [open, accountId]);
-
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       // Buscar logs de auditoria
@@ -132,13 +127,15 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
     } finally {
       setLoading(false);
     }
-  };
+  }, [accountId]);
+
+  useEffect(() => {
+    if (open && accountId) {
+      fetchHistory();
+    }
+  }, [open, accountId, fetchHistory]);
 
   const getActionIcon = (historyItem: HistoryItem) => {
-    if (historyItem.type === 'payment') {
-      return <CreditCard className="h-4 w-4 text-green-600" />;
-    }
-    
     const log = historyItem.data as AuditLog;
     switch (log.action) {
       case 'INSERT':
@@ -156,7 +153,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
     if (historyItem.type === 'payment') {
       return 'Pagamento';
     }
-    
+
     const log = historyItem.data as AuditLog;
     switch (log.action) {
       case 'INSERT':
@@ -174,7 +171,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
     if (historyItem.type === 'payment') {
       return 'bg-green-100 text-green-800';
     }
-    
+
     const log = historyItem.data as AuditLog;
     switch (log.action) {
       case 'INSERT':
@@ -201,10 +198,10 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
 
   const getChangedFields = (oldValues: any, newValues: any) => {
     if (!oldValues || !newValues) return [];
-    
+
     const changes: { field: string; from: any; to: any }[] = [];
     const fieldsToCheck = ['description', 'amount', 'due_date', 'status', 'payment_type'];
-    
+
     fieldsToCheck.forEach(field => {
       if (oldValues[field] !== newValues[field]) {
         changes.push({
@@ -214,7 +211,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
         });
       }
     });
-    
+
     return changes;
   };
 
@@ -231,7 +228,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
 
   const formatValue = (field: string, value: any) => {
     if (value === null || value === undefined) return 'N/A';
-    
+
     switch (field) {
       case 'amount':
         return new Intl.NumberFormat('pt-BR', {
@@ -258,7 +255,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
             Histórico da Conta
           </DialogTitle>
         </DialogHeader>
-        
+
         <ScrollArea className="max-h-[60vh]">
           {loading ? (
             <div className="text-center py-8">Carregando histórico...</div>
@@ -274,7 +271,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
                     <div className="flex-shrink-0">
                       {getActionIcon(historyItem)}
                     </div>
-                    
+
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -290,7 +287,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
                           {formatDateTime(historyItem.created_at)}
                         </span>
                       </div>
-                      
+
                       {/* Conteúdo específico para logs de auditoria */}
                       {historyItem.type === 'audit' && (() => {
                         const log = historyItem.data as AuditLog;
@@ -316,13 +313,13 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
                                 ))}
                               </div>
                             )}
-                            
+
                             {log.action === 'INSERT' && (
                               <div className="text-sm text-green-700">
                                 Conta criada no sistema
                               </div>
                             )}
-                            
+
                             {log.action === 'DELETE' && (
                               <div className="text-sm text-red-700">
                                 Conta marcada como paga
@@ -331,7 +328,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
                           </>
                         );
                       })()}
-                      
+
                       {/* Conteúdo específico para pagamentos */}
                       {historyItem.type === 'payment' && (() => {
                         const payment = historyItem.data as Payment;
@@ -353,7 +350,7 @@ export const AccountHistoryModal = ({ accountId, open, onClose }: AccountHistory
                       })()}
                     </div>
                   </div>
-                  
+
                   {index < history.length - 1 && (
                     <Separator className="my-4" />
                   )}

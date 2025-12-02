@@ -53,11 +53,15 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
     cost_center_name: '',
   });
 
-  useEffect(() => {
-    if (isOpen && supplierId) {
-      fetchSupplierAccounts();
-    }
-  }, [isOpen, supplierId]);
+  // Converte 'YYYY-MM-DD' para Date no timezone local (evita shift UTC)
+  const parseDateLocal = (dateStr: string) => {
+    if (!dateStr) return new Date('');
+    const parts = dateStr.split('-');
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    return new Date(year, month, day);
+  };
 
   const fetchSupplierAccounts = async () => {
     setLoading(true);
@@ -98,6 +102,13 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen && supplierId) {
+      fetchSupplierAccounts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, supplierId]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -142,18 +153,23 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
 
     // Apply column filters
     if (columnFilters.description) {
-      result = result.filter(a => 
+      result = result.filter(a =>
         a.description.toLowerCase().includes(columnFilters.description.toLowerCase())
       );
     }
     if (columnFilters.amount) {
-      result = result.filter(a => 
+      result = result.filter(a =>
         a.amount.toString().includes(columnFilters.amount)
       );
     }
     if (columnFilters.due_date) {
-      result = result.filter(a => 
-        format(new Date(a.due_date), 'dd/MM/yyyy').includes(columnFilters.due_date)
+      result = result.filter(a => {
+        if (typeof a.due_date === 'string' && a.due_date.includes('-')) {
+          const [year, month, day] = a.due_date.split('-');
+          const newDate = `${day}/${month}/${year}`;
+          return newDate.includes(columnFilters.due_date)
+        }
+      }
       );
     }
     if (columnFilters.status) {
@@ -162,7 +178,7 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
         'pago': 'Pago',
         'cancelado': 'Cancelado',
       };
-      result = result.filter(a => 
+      result = result.filter(a =>
         (statusMap[a.status] || a.status).toLowerCase().includes(columnFilters.status.toLowerCase())
       );
     }
@@ -173,12 +189,12 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
         'transferencia': 'Transferência',
         'cartao': 'Cartão',
       };
-      result = result.filter(a => 
+      result = result.filter(a =>
         (typeMap[a.payment_type] || a.payment_type).toLowerCase().includes(columnFilters.payment_type.toLowerCase())
       );
     }
     if (columnFilters.cost_center_name) {
-      result = result.filter(a => 
+      result = result.filter(a =>
         (a.cost_center_name || '').toLowerCase().includes(columnFilters.cost_center_name.toLowerCase())
       );
     }
@@ -193,8 +209,8 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
           aValue = Number(aValue);
           bValue = Number(bValue);
         } else if (sortField === 'due_date') {
-          aValue = new Date(aValue).getTime();
-          bValue = new Date(bValue).getTime();
+          aValue = parseDateLocal(aValue).getTime();
+          bValue = parseDateLocal(bValue).getTime();
         } else {
           aValue = (aValue || '').toString().toLowerCase();
           bValue = (bValue || '').toString().toLowerCase();
@@ -218,7 +234,7 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
 
   const getStatusBadge = (status: string, dueDate: string) => {
     const today = new Date().toISOString().split('T')[0];
-    
+
     if (status === 'pago') {
       return <Badge className="bg-green-500 hover:bg-green-600">Pago</Badge>;
     }
@@ -390,7 +406,7 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
                       </TableCell>
                       <TableCell>{formatCurrency(account.amount)}</TableCell>
                       <TableCell>
-                        {format(new Date(account.due_date), 'dd/MM/yyyy', { locale: ptBR })}
+                        {format(parseDateLocal(account.due_date), 'dd/MM/yyyy', { locale: ptBR })}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(account.status, account.due_date)}

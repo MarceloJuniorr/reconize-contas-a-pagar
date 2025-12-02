@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, DollarSign, AlertTriangle, CheckCircle, Calendar, Upload } from 'lucide-react';
@@ -38,7 +38,7 @@ const AccountsPayable = () => {
   const [activeFilter, setActiveFilter] = useState<DashboardFilter>('all');
   const { toast } = useToast();
 
-  const fetchAccounts = async (customDateFrom?: Date, customDateUntil?: Date, filter?: DashboardFilter) => {
+  const fetchAccounts = useCallback(async (customDateFrom?: Date, customDateUntil?: Date, filter?: DashboardFilter) => {
     try {
       console.log('fetchAccounts called with:', { customDateFrom, customDateUntil, filter });
 
@@ -123,9 +123,9 @@ const AccountsPayable = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -191,12 +191,12 @@ const AccountsPayable = () => {
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAccounts();
     fetchStats();
-  }, [fetchAccounts]);
+  }, [fetchAccounts, fetchStats]);
 
   const handleAccountCreated = () => {
     setIsDialogOpen(false);

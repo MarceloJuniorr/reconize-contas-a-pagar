@@ -15,7 +15,6 @@ interface BarcodeScannerProps {
 export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
-  const decoderRef = useRef<any | null>(null);
   const [scannerState, setScannerState] = useState<'loading' | 'ready' | 'error' | 'https-required'>('loading');
   const { toast } = useToast();
 
@@ -45,21 +44,7 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       return;
     }
 
-    try {
-      // solicita permissão explicitamente
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      stream.getTracks().forEach(t => t.stop());
-    } catch (err) {
-      console.error('Permissão negada:', err);
-      setScannerState('error');
-      toast({
-        title: 'Permissão de câmera necessária',
-        description: 'Permita o acesso à câmera para escanear boletos.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+    // Não chamar getUserMedia aqui - deixar ZXing gerenciar
     await initZXing();
   };
 
@@ -77,53 +62,36 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       const codeReader = new BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
 
-      // decodeFromVideoDevice = camera automática, contínuo
-      const decoderPromise = codeReader.decodeFromVideoDevice(
+      console.log('Iniciando decodeFromVideoDevice...');
+
+      // decodeFromVideoDevice com callback
+      await codeReader.decodeFromVideoDevice(
         undefined, // camera id undefined = seleciona automaticamente
         videoEl,
-        (result: any, err: any) => {
+        (result, err) => {
           if (result) {
-            const decodedText = result.text;
-            console.log('Código detectado:', decodedText);
+            const decodedText = result.getText();
+            console.log('✅ Código detectado:', decodedText);
             handleDetected(decodedText);
-            return;
           }
 
           if (err) {
             const name = String(err.name || '');
-            const msg = String(err.message || err);
+            const msg = String(err.message || '');
             const isNotFound = /notfound/i.test(name) || /notfound/i.test(msg);
+
             if (!isNotFound) {
-              console.warn('ZXing decode error:', msg);
+              console.warn('⚠️ ZXing decode error:', msg);
             }
           }
         }
       );
 
-      // tenta garantir que o vídeo seja reproduzido e visível
-      decoderRef.current = decoderPromise;
-      // aguarda curto período para o stream ser ligado
-      setTimeout(async () => {
-        try {
-          const s = videoEl.srcObject as MediaStream | null;
-          console.log('video.srcObject após start:', s);
-          if (s && s.getTracks && s.getTracks().length > 0) {
-            // tenta tocar o vídeo (some browsers exigem play() explícito)
-            await videoEl.play().catch((e) => console.warn('video.play() falhou:', e));
-            console.log('video.play() chamado');
-          } else {
-            console.warn('Nenhuma track encontrada no srcObject ainda');
-          }
-        } catch (e) {
-          console.warn('Erro ao forçar play do vídeo:', e);
-        }
-      }, 500);
-
       setScannerState('ready');
-      console.log('ZXing iniciado com sucesso');
+      console.log('✅ ZXing iniciado com sucesso');
 
     } catch (err) {
-      console.error('initZXing erro:', err);
+      console.error('❌ initZXing erro:', err);
       setScannerState('error');
       toast({
         title: 'Erro ao inicializar scanner',
@@ -136,55 +104,63 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
 
   const handleDetected = (rawValue: string) => {
     const decodedText = String(rawValue || '').trim();
-    console.log('handleDetected:', decodedText);
-    if (!decodedText) return;
+    console.log('🔍 handleDetected - valor bruto:', decodedText);
 
-    // valida boleto: 44 ou 47 dígitos numéricos
+    if (!decodedText) {
+      console.warn('⚠️ Texto decodificado vazio');
+      return;
+    }
+
+    // Remove espaços e caracteres especiais, mantém só números
     const clean = decodedText.replace(/\D/g, '');
-    if (clean.length === 44 || clean.length === 47) {
+    console.log('🔍 Código limpo (só números):', clean, 'tamanho:', clean.length);
+
+    // Boleto bancário: 47 dígitos (linha digitável) ou 44 dígitos (código de barras)
+    // Também aceita outros tamanhos comuns de boletos
+    if (clean.length === 44 || clean.length === 47 || clean.length === 48) {
+      console.log('✅ Código válido detectado! Enviando...', clean);
       onScan(clean);
       toast({
-        title: 'Código escaneado',
-        description: 'Código detectado com sucesso.',
+        title: 'Código escaneado com sucesso!',
+        description: `Código de ${clean.length} dígitos detectado.`,
       });
       stopAll();
       onClose();
     } else {
+      console.warn('⚠️ Código com tamanho inválido:', clean.length, 'dígitos');
       toast({
-        title: 'Código inválido',
-        description: 'O código escaneado não é um boleto brasileiro válido.',
+        title: 'Código detectado',
+        description: `Código com ${clean.length} dígitos. Esperado: 44, 47 ou 48 dígitos.`,
         variant: 'destructive',
       });
     }
   };
 
   const stopAll = async () => {
-    console.log('BarcodeScanner: stopAll');
-
-    if (decoderRef.current) {
-      try {
-        await decoderRef.current;
-      } catch (e) {
-        console.warn('Erro parar decoder:', e);
-      }
-      decoderRef.current = null;
-    }
+    console.log('🛑 BarcodeScanner: stopAll');
 
     if (codeReaderRef.current) {
       try {
         codeReaderRef.current.reset();
+        console.log('✅ CodeReader resetado');
       } catch (e) {
-        console.warn('Erro reset codeReader:', e);
+        console.warn('⚠️ Erro reset codeReader:', e);
       }
       codeReaderRef.current = null;
     }
 
     if (videoRef.current) {
       try {
-        videoRef.current.pause();
+        const stream = videoRef.current.srcObject as MediaStream;
+        if (stream) {
+          stream.getTracks().forEach(track => {
+            track.stop();
+            console.log('✅ Track parada:', track.label);
+          });
+        }
         videoRef.current.srcObject = null;
       } catch (e) {
-        console.warn('Erro limpar videoRef', e);
+        console.warn('⚠️ Erro limpar videoRef:', e);
       }
     }
 
@@ -254,9 +230,15 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
         return (
           <Card>
             <CardContent className="p-4">
-              <div className="text-center">
+              <div className="text-center space-y-2">
+                <p className="text-sm font-medium text-primary">
+                  📷 Câmera ativa
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  Aponte a câmera para o código de barras do boleto
+                  Aponte para o código de barras do boleto
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Mantenha o código centralizado e bem iluminado
                 </p>
               </div>
             </CardContent>
@@ -270,15 +252,16 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
   return (
     <Dialog open={isOpen} onOpenChange={() => { stopAll(); onClose(); }}>
       <DialogContent className="w-[95vw] max-w-md p-4">
-        {/* único elemento <video> no DOM — sempre presente (visível quando ready) */}
+        {/* Vídeo sempre presente */}
         <video
           ref={videoRef}
           style={{
-            display: 'block', // nunca remova do fluxo para não impedir inicialização do stream
+            display: 'block',
             visibility: scannerState === 'ready' ? 'visible' : 'hidden',
             opacity: scannerState === 'ready' ? 1 : 0,
             width: '100%',
             minHeight: 300,
+            maxHeight: 400,
             backgroundColor: '#000',
             objectFit: 'cover',
             borderRadius: '0.5rem',
@@ -287,6 +270,7 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
           muted
           autoPlay
         />
+
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center justify-between text-lg">
             <div className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { X, Camera, RefreshCw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface BarcodeScannerProps {
@@ -15,7 +16,9 @@ interface BarcodeScannerProps {
 
 export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const scanIntervalRef = useRef<number | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
   const [scannerState, setScannerState] = useState<'loading' | 'ready' | 'error' | 'https-required'>('loading');
@@ -26,7 +29,6 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       setScannerState('loading');
       loadVideoDevices();
       setTimeout(() => startFlow(), 100);
-      // atualizar lista ao mudar devices (Android troca ids ao dar permissão)
       navigator.mediaDevices?.addEventListener?.('devicechange', loadVideoDevices);
     } else {
       stopAll();
@@ -41,7 +43,6 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
 
   const loadVideoDevices = async () => {
     try {
-      // NÃO chama getUserMedia aqui (causa conflito no Android)
       const all = await navigator.mediaDevices.enumerateDevices();
       const videoInputs = all.filter(d => d.kind === 'videoinput');
       setDevices(videoInputs);
@@ -69,6 +70,10 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
   };
 
   const stopStreamsOnly = async () => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
     const v = videoRef.current;
     if (v?.srcObject) {
       try {
@@ -84,44 +89,45 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
   const initZXing = async () => {
     try {
       const videoEl = videoRef.current;
-      if (!videoEl) {
-        console.error('videoRef não definido');
+      const canvasEl = canvasRef.current;
+      if (!videoEl || !canvasEl) {
+        console.error('videoRef ou canvasRef não definido');
         setScannerState('error');
         return;
       }
 
       await stopStreamsOnly();
-      const codeReader = new BrowserMultiFormatReader();
-      codeReaderRef.current = codeReader;
 
-      const cb = (result: any, err: any) => {
-        if (result) {
-          const decodedText = result.getText ? result.getText() : String(result?.text || '');
-          console.log('✅ Código detectado:', decodedText);
-          handleDetected(decodedText);
-        } else if (err) {
-          const name = String(err?.name || '');
-          const msg = String(err?.message || err);
-          if (!/notfound/i.test(name + ' ' + msg)) console.warn('⚠️ ZXing decode error:', msg);
-        }
-      };
+      // Hints focando em formatos de boleto
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.ITF,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+      ]);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+
+      const codeReader = new BrowserMultiFormatReader(hints, 500);
+      codeReaderRef.current = codeReader;
 
       const tryConstraints = async (constraints: MediaStreamConstraints, hint: string) => {
         console.log('Tentando constraints:', hint, constraints);
         try {
           await stopStreamsOnly();
-          // decodeFromConstraints usa getUserMedia internamente com as constraints fornecidas
-          await codeReader.decodeFromConstraints(constraints, videoEl, cb);
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          videoEl.srcObject = stream;
+          videoEl.muted = true;
+          await videoEl.play().catch(err => console.warn('video.play falhou:', err));
           return true;
         } catch (e) {
-          console.warn('Falha decodeFromConstraints:', hint, e);
+          console.warn('Falha getUserMedia:', hint, e);
           await stopStreamsOnly();
-          await new Promise(r => setTimeout(r, 300)); // pequeno cooldown no Android
+          await new Promise(r => setTimeout(r, 300));
           return false;
         }
       };
 
-      // Tentativa 1: deviceId exato (selec. do usuário)
+      // Tentativas de constraints
       let ok = false;
       if (selectedDeviceId) {
         ok = await tryConstraints(
@@ -130,38 +136,38 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
             video: {
               deviceId: { exact: selectedDeviceId },
               facingMode: 'environment',
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
             } as MediaTrackConstraints
           },
           'deviceId exato'
         );
       }
 
-      // Tentativa 2: facingMode environment (mais compatível no Android)
       if (!ok) {
         ok = await tryConstraints(
           {
             audio: false,
             video: {
               facingMode: { ideal: 'environment' },
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
             }
           },
           'facingMode environment'
         );
       }
 
-      // Tentativa 3: genérica (video: true)
       if (!ok) {
         ok = await tryConstraints({ video: true, audio: false }, 'genérica');
       }
 
-      if (!ok) throw new Error('Não foi possível iniciar a câmera no Android após fallbacks');
+      if (!ok) throw new Error('Não foi possível iniciar a câmera após fallbacks');
 
+      // Iniciar loop de scan com ROI
+      startScanLoop(videoEl, canvasEl, codeReader);
       setScannerState('ready');
-      console.log('✅ Scanner iniciado com sucesso (constraints)');
+      console.log('✅ Scanner iniciado com sucesso');
     } catch (err) {
       console.error('❌ initZXing erro:', err);
       setScannerState('error');
@@ -172,6 +178,65 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       });
       await stopStreamsOnly();
     }
+  };
+
+  const startScanLoop = (video: HTMLVideoElement, canvas: HTMLCanvasElement, reader: BrowserMultiFormatReader) => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const scan = async () => {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        // Define ROI: região central (70% largura, 50% altura)
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        const roiWidth = Math.floor(vw * 0.7);
+        const roiHeight = Math.floor(vh * 0.5);
+        const roiX = Math.floor((vw - roiWidth) / 2);
+        const roiY = Math.floor((vh - roiHeight) / 2);
+
+        // Ajusta canvas para ROI
+        canvas.width = roiWidth;
+        canvas.height = roiHeight;
+
+        // Desenha região ROI do vídeo no canvas
+        ctx.drawImage(
+          video,
+          roiX, roiY, roiWidth, roiHeight, // source
+          0, 0, roiWidth, roiHeight         // dest
+        );
+
+        try {
+          const result = await reader.decodeFromCanvas(canvas);
+          if (result) {
+            const decodedText = result.getText();
+            console.log('✅ Código detectado (ROI):', decodedText);
+            const clean = String(decodedText).replace(/\D/g, '');
+            if (clean.length === 44 || clean.length === 47) {
+              handleDetected(clean);
+            }
+          }
+        } catch (err) {
+          // NotFoundException esperado quando não há código
+          const msg = String(err?.message || err);
+          if (!/notfound/i.test(msg)) {
+            console.warn('⚠️ Decode error:', msg);
+          }
+        }
+      }
+    };
+
+    scanIntervalRef.current = window.setInterval(scan, 300);
+  };
+
+  const handleDetected = (cleanCode: string) => {
+    console.log('🔍 handleDetected:', cleanCode);
+    onScan(cleanCode);
+    toast({
+      title: 'Código escaneado com sucesso!',
+      description: `Código de ${cleanCode.length} dígitos detectado.`,
+    });
+    stopAll();
+    onClose();
   };
 
   const handleChangeCamera = async (deviceId: string) => {
@@ -191,7 +256,10 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
 
   const stopAll = async () => {
     console.log('🛑 BarcodeScanner: stopAll');
-
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
     if (codeReaderRef.current) {
       try {
         codeReaderRef.current.reset();
@@ -201,7 +269,6 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       }
       codeReaderRef.current = null;
     }
-
     if (videoRef.current) {
       try {
         const stream = videoRef.current.srcObject as MediaStream;
@@ -216,7 +283,6 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
         console.warn('⚠️ Erro limpar videoRef:', e);
       }
     }
-
     setScannerState('loading');
   };
 
@@ -305,11 +371,11 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
                   </div>
                 )}
                 <div className="text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Aponte para o código de barras do boleto
+                  <p className="text-sm font-medium text-primary">
+                    📷 Centralize o código de barras na área destacada
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Dica: escolha "traseira" para melhor foco (em celulares)
+                    Mantenha bem iluminado e estável
                   </p>
                 </div>
               </div>
@@ -324,23 +390,44 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
   return (
     <Dialog open={isOpen} onOpenChange={() => { stopAll(); onClose(); }}>
       <DialogContent className="w-[95vw] max-w-md p-4">
-        <video
-          ref={videoRef}
-          style={{
-            display: 'block',
-            visibility: scannerState === 'ready' ? 'visible' : 'hidden',
-            opacity: scannerState === 'ready' ? 1 : 0,
-            width: '100%',
-            minHeight: 300,
-            maxHeight: 400,
-            backgroundColor: '#000',
-            objectFit: 'cover',
-            borderRadius: '0.5rem',
-          }}
-          playsInline
-          muted
-          autoPlay
-        />
+        <div style={{ position: 'relative', width: '100%' }}>
+          <video
+            ref={videoRef}
+            style={{
+              display: 'block',
+              visibility: scannerState === 'ready' ? 'visible' : 'hidden',
+              opacity: scannerState === 'ready' ? 1 : 0,
+              width: '100%',
+              minHeight: 300,
+              maxHeight: 400,
+              backgroundColor: '#000',
+              objectFit: 'cover',
+              borderRadius: '0.5rem',
+            }}
+            playsInline
+            muted
+            autoPlay
+          />
+          {/* Overlay ROI */}
+          {scannerState === 'ready' && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '25%',
+                left: '15%',
+                width: '70%',
+                height: '50%',
+                border: '2px solid #22c55e',
+                borderRadius: '8px',
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+          {/* Canvas oculto para ROI */}
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+        </div>
+
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center justify-between text-lg">
             <div className="flex items-center gap-2">

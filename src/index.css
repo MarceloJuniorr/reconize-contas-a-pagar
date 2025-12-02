@@ -102,4 +102,19 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+
+  html, body, #root {
+    overflow-x: hidden;
+    /* mantém rolagem vertical */
+  }
+
+  /* Evitar tabelas/colunas estourarem a largura */
+  table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  td, th {
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
 }

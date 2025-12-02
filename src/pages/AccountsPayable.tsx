@@ -196,7 +196,7 @@ const AccountsPayable = () => {
   useEffect(() => {
     fetchAccounts();
     fetchStats();
-  }, []);
+  }, [fetchAccounts]);
 
   const handleAccountCreated = () => {
     setIsDialogOpen(false);
@@ -228,205 +228,207 @@ const AccountsPayable = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Contas a Pagar</h1>
-          <p className="text-muted-foreground">
-            Gerencie suas contas e obrigações financeiras
-          </p>
+    <div className="w-full overflow-x-hidden">
+      <div className="container mx-auto px-4 space-y-6 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Contas a Pagar</h1>
+            <p className="text-muted-foreground">
+              Gerencie suas contas e obrigações financeiras
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Conta
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
+                <DialogHeader>
+                  <DialogTitle>Cadastrar Nova Conta a Pagar</DialogTitle>
+                </DialogHeader>
+                <AccountForm onSuccess={handleAccountCreated} />
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar CSV
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
+                <DialogHeader>
+                  <DialogTitle>Importar Contas via CSV</DialogTitle>
+                </DialogHeader>
+                <CSVImport onSuccess={handleImportSuccess} />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Conta
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
-              <DialogHeader>
-                <DialogTitle>Cadastrar Nova Conta a Pagar</DialogTitle>
-              </DialogHeader>
-              <AccountForm onSuccess={handleAccountCreated} />
-            </DialogContent>
-          </Dialog>
+        {/* Dashboard Cards */}
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'open' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => handleDashboardCardClick('open')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total em Aberto</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(stats.totalOpen)}</div>
+              <p className="text-xs text-muted-foreground">
+                Contas pendentes de pagamento
+              </p>
+            </CardContent>
+          </Card>
 
-          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Upload className="h-4 w-4 mr-2" />
-                Importar CSV
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
-              <DialogHeader>
-                <DialogTitle>Importar Contas via CSV</DialogTitle>
-              </DialogHeader>
-              <CSVImport onSuccess={handleImportSuccess} />
-            </DialogContent>
-          </Dialog>
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'overdue' ? 'ring-2 ring-destructive' : ''}`}
+            onClick={() => handleDashboardCardClick('overdue')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Vencidas</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">{formatCurrency(stats.totalOverdue)}</div>
+              <p className="text-xs text-muted-foreground">
+                Contas em atraso
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_today' ? 'ring-2 ring-orange-500' : ''}`}
+            onClick={() => handleDashboardCardClick('due_today')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Vencendo Hoje</CardTitle>
+              <Calendar className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-500">{formatCurrency(stats.dueToday)}</div>
+              <p className="text-xs text-muted-foreground">
+                Contas que vencem hoje
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_tomorrow' ? 'ring-2 ring-yellow-500' : ''}`}
+            onClick={() => handleDashboardCardClick('due_tomorrow')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Vence Amanhã</CardTitle>
+              <Calendar className="h-4 w-4 text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-500">{formatCurrency(stats.dueTomorrow)}</div>
+              <p className="text-xs text-muted-foreground">
+                Contas que vencem amanhã
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_next_week' ? 'ring-2 ring-blue-500' : ''}`}
+            onClick={() => handleDashboardCardClick('due_next_week')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Próxima Semana</CardTitle>
+              <Calendar className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-500">{formatCurrency(stats.dueNextWeek)}</div>
+              <p className="text-xs text-muted-foreground">
+                Vencendo em 7 dias
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_today' ? 'ring-2 ring-green-600' : ''}`}
+            onClick={() => handleDashboardCardClick('paid_today')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pago Hoje</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.paidToday)}</div>
+              <p className="text-xs text-muted-foreground">
+                Total pago hoje
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_last_30_days' ? 'ring-2 ring-emerald-500' : ''}`}
+            onClick={() => handleDashboardCardClick('paid_last_30_days')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pagos 30 Dias</CardTitle>
+              <CheckCircle className="h-4 w-4 text-emerald-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-500">{formatCurrency(stats.paidLast30Days)}</div>
+              <p className="text-xs text-muted-foreground">
+                Últimos 30 dias pagos
+              </p>
+            </CardContent>
+          </Card>
         </div>
-      </div>
 
-      {/* Dashboard Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'open' ? 'ring-2 ring-primary' : ''}`}
-          onClick={() => handleDashboardCardClick('open')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total em Aberto</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Lista de Contas a Pagar
+              {activeFilter !== 'all' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-2"
+                  onClick={() => {
+                    setActiveFilter('all');
+                    setLoading(true);
+                    fetchAccounts();
+                  }}
+                >
+                  Limpar Filtro
+                </Button>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {activeFilter !== 'all'
+                ? 'Mostrando contas filtradas pelo dashboard'
+                : 'Visualize e gerencie todas as contas cadastradas'
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalOpen)}</div>
-            <p className="text-xs text-muted-foreground">
-              Contas pendentes de pagamento
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'overdue' ? 'ring-2 ring-destructive' : ''}`}
-          onClick={() => handleDashboardCardClick('overdue')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vencidas</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{formatCurrency(stats.totalOverdue)}</div>
-            <p className="text-xs text-muted-foreground">
-              Contas em atraso
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_today' ? 'ring-2 ring-orange-500' : ''}`}
-          onClick={() => handleDashboardCardClick('due_today')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vencendo Hoje</CardTitle>
-            <Calendar className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500">{formatCurrency(stats.dueToday)}</div>
-            <p className="text-xs text-muted-foreground">
-              Contas que vencem hoje
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_tomorrow' ? 'ring-2 ring-yellow-500' : ''}`}
-          onClick={() => handleDashboardCardClick('due_tomorrow')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vence Amanhã</CardTitle>
-            <Calendar className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-500">{formatCurrency(stats.dueTomorrow)}</div>
-            <p className="text-xs text-muted-foreground">
-              Contas que vencem amanhã
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_next_week' ? 'ring-2 ring-blue-500' : ''}`}
-          onClick={() => handleDashboardCardClick('due_next_week')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Próxima Semana</CardTitle>
-            <Calendar className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-500">{formatCurrency(stats.dueNextWeek)}</div>
-            <p className="text-xs text-muted-foreground">
-              Vencendo em 7 dias
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_today' ? 'ring-2 ring-green-600' : ''}`}
-          onClick={() => handleDashboardCardClick('paid_today')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pago Hoje</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.paidToday)}</div>
-            <p className="text-xs text-muted-foreground">
-              Total pago hoje
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_last_30_days' ? 'ring-2 ring-emerald-500' : ''}`}
-          onClick={() => handleDashboardCardClick('paid_last_30_days')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pagos 30 Dias</CardTitle>
-            <CheckCircle className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-500">{formatCurrency(stats.paidLast30Days)}</div>
-            <p className="text-xs text-muted-foreground">
-              Últimos 30 dias pagos
-            </p>
+            <AccountsList
+              accounts={accounts}
+              loading={loading}
+              onUpdate={() => {
+                fetchAccounts(undefined, undefined, activeFilter !== 'all' ? activeFilter : undefined);
+                fetchStats();
+              }}
+              onDateFilterChange={(fromDate, untilDate) => {
+                setActiveFilter('all');
+                console.log('Date filter changed:', { fromDate, untilDate });
+                fetchAccounts(fromDate, untilDate);
+              }}
+            />
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Lista de Contas a Pagar
-            {activeFilter !== 'all' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-2"
-                onClick={() => {
-                  setActiveFilter('all');
-                  setLoading(true);
-                  fetchAccounts();
-                }}
-              >
-                Limpar Filtro
-              </Button>
-            )}
-          </CardTitle>
-          <CardDescription>
-            {activeFilter !== 'all'
-              ? 'Mostrando contas filtradas pelo dashboard'
-              : 'Visualize e gerencie todas as contas cadastradas'
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <AccountsList
-            accounts={accounts}
-            loading={loading}
-            onUpdate={() => {
-              fetchAccounts(undefined, undefined, activeFilter !== 'all' ? activeFilter : undefined);
-              fetchStats();
-            }}
-            onDateFilterChange={(fromDate, untilDate) => {
-              setActiveFilter('all');
-              console.log('Date filter changed:', { fromDate, untilDate });
-              fetchAccounts(fromDate, untilDate);
-            }}
-          />
-        </CardContent>
-      </Card>
     </div>
   );
 };

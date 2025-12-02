@@ -17,7 +17,7 @@ interface DashboardStats {
   dueTomorrow: number;
   dueNextWeek: number;
   paidToday: number;
-  paidLast60Days: number;
+  paidLast30Days: number;
 }
 
 type DashboardFilter = 'all' | 'open' | 'overdue' | 'due_today' | 'due_tomorrow' | 'due_next_week' | 'paid_today' | 'paid_last_60_days';
@@ -31,7 +31,7 @@ const AccountsPayable = () => {
     dueTomorrow: 0,
     dueNextWeek: 0,
     paidToday: 0,
-    paidLast60Days: 0,
+    paidLast30Days: 0,
   });
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -42,7 +42,7 @@ const AccountsPayable = () => {
   const fetchAccounts = async (customDateFrom?: Date, customDateUntil?: Date, filter?: DashboardFilter) => {
     try {
       console.log('fetchAccounts called with:', { customDateFrom, customDateUntil, filter });
-      
+
       const today = new Date().toISOString().split('T')[0];
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -79,7 +79,7 @@ const AccountsPayable = () => {
               .from('payments')
               .select('account_id')
               .eq('payment_date', today);
-            
+
             if (paidAccounts && paidAccounts.length > 0) {
               const accountIds = paidAccounts.map(p => p.account_id);
               query = query.in('id', accountIds);
@@ -95,7 +95,7 @@ const AccountsPayable = () => {
               .from('payments')
               .select('account_id')
               .gte('payment_date', sixtyDaysAgo);
-            
+
             if (paid60DaysAccounts && paid60DaysAccounts.length > 0) {
               const accountIds = [...new Set(paid60DaysAccounts.map(p => p.account_id))];
               query = query.in('id', accountIds);
@@ -184,12 +184,12 @@ const AccountsPayable = () => {
         .select('amount_paid')
         .eq('payment_date', today);
 
-      // Pago nos últimos 60 dias
-      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const { data: paidLast60DaysData } = await supabase
+      // Pago nos últimos 30 dias
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const { data: paidLast30DaysData } = await supabase
         .from('payments')
         .select('amount_paid')
-        .gte('payment_date', sixtyDaysAgo);
+        .gte('payment_date', thirtyDaysAgo);
 
       setStats({
         totalOpen: openAccounts?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
@@ -198,7 +198,7 @@ const AccountsPayable = () => {
         dueTomorrow: dueTomorrowData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
         dueNextWeek: dueNextWeekData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
         paidToday: paidTodayData?.reduce((sum, payment) => sum + Number(payment.amount_paid), 0) || 0,
-        paidLast60Days: paidLast60DaysData?.reduce((sum, payment) => sum + Number(payment.amount_paid), 0) || 0,
+        paidLast30Days: paidLast30DaysData?.reduce((sum, payment) => sum + Number(payment.amount_paid), 0) || 0,
       });
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
@@ -248,7 +248,7 @@ const AccountsPayable = () => {
             Gerencie suas contas e obrigações financeiras
           </p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -284,7 +284,7 @@ const AccountsPayable = () => {
 
       {/* Dashboard Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
-        <Card 
+        <Card
           className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'open' ? 'ring-2 ring-primary' : ''}`}
           onClick={() => handleDashboardCardClick('open')}
         >
@@ -300,7 +300,7 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'overdue' ? 'ring-2 ring-destructive' : ''}`}
           onClick={() => handleDashboardCardClick('overdue')}
         >
@@ -316,7 +316,7 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_today' ? 'ring-2 ring-orange-500' : ''}`}
           onClick={() => handleDashboardCardClick('due_today')}
         >
@@ -332,7 +332,7 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_tomorrow' ? 'ring-2 ring-yellow-500' : ''}`}
           onClick={() => handleDashboardCardClick('due_tomorrow')}
         >
@@ -348,7 +348,7 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'due_next_week' ? 'ring-2 ring-blue-500' : ''}`}
           onClick={() => handleDashboardCardClick('due_next_week')}
         >
@@ -364,7 +364,7 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_today' ? 'ring-2 ring-green-600' : ''}`}
           onClick={() => handleDashboardCardClick('paid_today')}
         >
@@ -380,18 +380,18 @@ const AccountsPayable = () => {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_last_60_days' ? 'ring-2 ring-emerald-500' : ''}`}
           onClick={() => handleDashboardCardClick('paid_last_60_days')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pagos 60 Dias</CardTitle>
+            <CardTitle className="text-sm font-medium">Pagos 30 Dias</CardTitle>
             <CheckCircle className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-500">{formatCurrency(stats.paidLast60Days)}</div>
+            <div className="text-2xl font-bold text-emerald-500">{formatCurrency(stats.paidLast30Days)}</div>
             <p className="text-xs text-muted-foreground">
-              Últimos 60 dias
+              Últimos 30 dias
             </p>
           </CardContent>
         </Card>
@@ -402,9 +402,9 @@ const AccountsPayable = () => {
           <CardTitle>
             Lista de Contas a Pagar
             {activeFilter !== 'all' && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="ml-2"
                 onClick={() => {
                   setActiveFilter('all');
@@ -417,16 +417,16 @@ const AccountsPayable = () => {
             )}
           </CardTitle>
           <CardDescription>
-            {activeFilter !== 'all' 
-              ? 'Mostrando contas filtradas pelo dashboard' 
+            {activeFilter !== 'all'
+              ? 'Mostrando contas filtradas pelo dashboard'
               : 'Visualize e gerencie todas as contas cadastradas'
             }
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <AccountsList 
-            accounts={accounts} 
-            loading={loading} 
+          <AccountsList
+            accounts={accounts}
+            loading={loading}
             onUpdate={() => {
               fetchAccounts(undefined, undefined, activeFilter !== 'all' ? activeFilter : undefined);
               fetchStats();

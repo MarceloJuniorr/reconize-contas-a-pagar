@@ -17,9 +17,10 @@ interface DashboardStats {
   dueTomorrow: number;
   dueNextWeek: number;
   paidToday: number;
+  paidLast60Days: number;
 }
 
-type DashboardFilter = 'all' | 'open' | 'overdue' | 'due_today' | 'due_tomorrow' | 'due_next_week' | 'paid_today';
+type DashboardFilter = 'all' | 'open' | 'overdue' | 'due_today' | 'due_tomorrow' | 'due_next_week' | 'paid_today' | 'paid_last_60_days';
 
 const AccountsPayable = () => {
   const [accounts, setAccounts] = useState([]);
@@ -30,6 +31,7 @@ const AccountsPayable = () => {
     dueTomorrow: 0,
     dueNextWeek: 0,
     paidToday: 0,
+    paidLast60Days: 0,
   });
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -82,7 +84,22 @@ const AccountsPayable = () => {
               const accountIds = paidAccounts.map(p => p.account_id);
               query = query.in('id', accountIds);
             } else {
-              // Se não há pagamentos hoje, retornar vazio
+              setAccounts([]);
+              setLoading(false);
+              return;
+            }
+            break;
+          case 'paid_last_60_days':
+            const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const { data: paid60DaysAccounts } = await supabase
+              .from('payments')
+              .select('account_id')
+              .gte('payment_date', sixtyDaysAgo);
+            
+            if (paid60DaysAccounts && paid60DaysAccounts.length > 0) {
+              const accountIds = [...new Set(paid60DaysAccounts.map(p => p.account_id))];
+              query = query.in('id', accountIds);
+            } else {
               setAccounts([]);
               setLoading(false);
               return;
@@ -167,6 +184,13 @@ const AccountsPayable = () => {
         .select('amount_paid')
         .eq('payment_date', today);
 
+      // Pago nos últimos 60 dias
+      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const { data: paidLast60DaysData } = await supabase
+        .from('payments')
+        .select('amount_paid')
+        .gte('payment_date', sixtyDaysAgo);
+
       setStats({
         totalOpen: openAccounts?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
         totalOverdue: overdueAccounts?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
@@ -174,6 +198,7 @@ const AccountsPayable = () => {
         dueTomorrow: dueTomorrowData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
         dueNextWeek: dueNextWeekData?.reduce((sum, acc) => sum + Number(acc.amount), 0) || 0,
         paidToday: paidTodayData?.reduce((sum, payment) => sum + Number(payment.amount_paid), 0) || 0,
+        paidLast60Days: paidLast60DaysData?.reduce((sum, payment) => sum + Number(payment.amount_paid), 0) || 0,
       });
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
@@ -258,7 +283,7 @@ const AccountsPayable = () => {
       </div>
 
       {/* Dashboard Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
         <Card 
           className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'open' ? 'ring-2 ring-primary' : ''}`}
           onClick={() => handleDashboardCardClick('open')}
@@ -351,6 +376,22 @@ const AccountsPayable = () => {
             <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.paidToday)}</div>
             <p className="text-xs text-muted-foreground">
               Total pago hoje
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'paid_last_60_days' ? 'ring-2 ring-emerald-500' : ''}`}
+          onClick={() => handleDashboardCardClick('paid_last_60_days')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pagos 60 Dias</CardTitle>
+            <CheckCircle className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-500">{formatCurrency(stats.paidLast60Days)}</div>
+            <p className="text-xs text-muted-foreground">
+              Últimos 60 dias
             </p>
           </CardContent>
         </Card>

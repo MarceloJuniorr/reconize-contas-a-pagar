@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { X, Camera, RefreshCw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface BarcodeScannerProps {
   isOpen: boolean;
@@ -15,12 +16,16 @@ interface BarcodeScannerProps {
 export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
   const [scannerState, setScannerState] = useState<'loading' | 'ready' | 'error' | 'https-required'>('loading');
   const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
       setScannerState('loading');
+      // carrega dispositivos de vídeo
+      loadVideoDevices();
       setTimeout(() => startFlow(), 100);
     } else {
       stopAll();
@@ -29,6 +34,23 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
     return () => stopAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  const loadVideoDevices = async () => {
+    try {
+      // garantir permissão antes de enumerar (alguns browsers só mostram labels após permissão)
+      await navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+        stream.getTracks().forEach(t => t.stop());
+      }).catch(() => { });
+      const all = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = all.filter(d => d.kind === 'videoinput');
+      setDevices(videoInputs);
+      // escolher automaticamente traseira se houver
+      const back = videoInputs.find(d => /back|traseir|rear|environment/i.test(d.label));
+      setSelectedDeviceId((back?.deviceId || videoInputs[0]?.deviceId) ?? undefined);
+    } catch (e) {
+      console.warn('Falha ao listar câmeras:', e);
+    }
+  };
 
   const startFlow = async () => {
     console.log('BarcodeScanner: startFlow');
@@ -58,15 +80,12 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       }
 
       console.log('Inicializando ZXing BrowserMultiFormatReader...');
-
       const codeReader = new BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
 
-      console.log('Iniciando decodeFromVideoDevice...');
-
-      // decodeFromVideoDevice com callback
+      console.log('Iniciando decodeFromVideoDevice...', selectedDeviceId);
       await codeReader.decodeFromVideoDevice(
-        undefined, // camera id undefined = seleciona automaticamente
+        selectedDeviceId, // usa a câmera selecionada
         videoEl,
         (result, err) => {
           if (result) {
@@ -131,6 +150,23 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       toast({
         title: 'Código detectado',
         description: `Código com ${clean.length} dígitos. Esperado: 44, 47 ou 48 dígitos.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // troca de câmera: para o fluxo atual e reinicia com novo deviceId
+  const handleChangeCamera = async (deviceId: string) => {
+    try {
+      setSelectedDeviceId(deviceId);
+      await stopAll();
+      setScannerState('loading');
+      await initZXing();
+    } catch (e) {
+      console.warn('Erro ao trocar câmera:', e);
+      toast({
+        title: 'Erro ao trocar câmera',
+        description: String((e as Error).message || e),
         variant: 'destructive',
       });
     }
@@ -230,16 +266,35 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
         return (
           <Card>
             <CardContent className="p-4">
-              <div className="text-center space-y-2">
-                <p className="text-sm font-medium text-primary">
-                  📷 Câmera ativa
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Aponte para o código de barras do boleto
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Mantenha o código centralizado e bem iluminado
-                </p>
+              <div className="space-y-3">
+                {devices.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Câmera:</span>
+                    <Select
+                      value={selectedDeviceId || ''}
+                      onValueChange={(val) => handleChangeCamera(val)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione a câmera" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {devices.map((d) => (
+                          <SelectItem key={d.deviceId} value={d.deviceId}>
+                            {d.label || `Câmera ${d.deviceId.slice(0, 6)}...`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Aponte para o código de barras do boleto
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Dica: escolha "traseira" para melhor foco (em celulares)
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -252,7 +307,6 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
   return (
     <Dialog open={isOpen} onOpenChange={() => { stopAll(); onClose(); }}>
       <DialogContent className="w-[95vw] max-w-md p-4">
-        {/* Vídeo sempre presente */}
         <video
           ref={videoRef}
           style={{
@@ -270,7 +324,6 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
           muted
           autoPlay
         />
-
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center justify-between text-lg">
             <div className="flex items-center gap-2">

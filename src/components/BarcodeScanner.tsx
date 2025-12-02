@@ -24,29 +24,31 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
   useEffect(() => {
     if (isOpen) {
       setScannerState('loading');
-      // carrega dispositivos de vídeo
       loadVideoDevices();
       setTimeout(() => startFlow(), 100);
+      // atualizar lista ao mudar devices (Android troca ids ao dar permissão)
+      navigator.mediaDevices?.addEventListener?.('devicechange', loadVideoDevices);
     } else {
       stopAll();
+      navigator.mediaDevices?.removeEventListener?.('devicechange', loadVideoDevices);
     }
-
-    return () => stopAll();
+    return () => {
+      stopAll();
+      navigator.mediaDevices?.removeEventListener?.('devicechange', loadVideoDevices);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const loadVideoDevices = async () => {
     try {
-      // garantir permissão antes de enumerar (alguns browsers só mostram labels após permissão)
-      await navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-        stream.getTracks().forEach(t => t.stop());
-      }).catch(() => { });
+      // NÃO chama getUserMedia aqui (causa conflito no Android)
       const all = await navigator.mediaDevices.enumerateDevices();
       const videoInputs = all.filter(d => d.kind === 'videoinput');
       setDevices(videoInputs);
-      // escolher automaticamente traseira se houver
-      const back = videoInputs.find(d => /back|traseir|rear|environment/i.test(d.label));
-      setSelectedDeviceId((back?.deviceId || videoInputs[0]?.deviceId) ?? undefined);
+      if (!selectedDeviceId && videoInputs.length > 0) {
+        const back = videoInputs.find(d => /back|traseir|rear|environment/i.test(d.label));
+        setSelectedDeviceId((back?.deviceId || videoInputs[0]?.deviceId) ?? undefined);
+      }
     } catch (e) {
       console.warn('Falha ao listar câmeras:', e);
     }
@@ -54,20 +56,29 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
 
   const startFlow = async () => {
     console.log('BarcodeScanner: startFlow');
-
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       setScannerState('https-required');
       return;
     }
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       console.error('MediaDevices não suportado');
       setScannerState('error');
       return;
     }
-
-    // Não chamar getUserMedia aqui - deixar ZXing gerenciar
     await initZXing();
+  };
+
+  const stopStreamsOnly = async () => {
+    const v = videoRef.current;
+    if (v?.srcObject) {
+      try {
+        (v.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      } catch { }
+      v.srcObject = null;
+    }
+    if (codeReaderRef.current) {
+      try { codeReaderRef.current.reset(); } catch { }
+    }
   };
 
   const initZXing = async () => {
@@ -79,93 +90,78 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
         return;
       }
 
-      console.log('Inicializando ZXing BrowserMultiFormatReader...');
+      await stopStreamsOnly();
       const codeReader = new BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
 
-      const tryStart = async (deviceId?: string, hint?: string) => {
-        console.log('Iniciando decodeFromVideoDevice...', deviceId || '(auto)', hint || '');
+      const cb = (result: any, err: any) => {
+        if (result) {
+          const decodedText = result.getText ? result.getText() : String(result?.text || '');
+          console.log('✅ Código detectado:', decodedText);
+          handleDetected(decodedText);
+        } else if (err) {
+          const name = String(err?.name || '');
+          const msg = String(err?.message || err);
+          if (!/notfound/i.test(name + ' ' + msg)) console.warn('⚠️ ZXing decode error:', msg);
+        }
+      };
+
+      const tryConstraints = async (constraints: MediaStreamConstraints, hint: string) => {
+        console.log('Tentando constraints:', hint, constraints);
         try {
-          await codeReader.decodeFromVideoDevice(
-            deviceId,
-            videoEl,
-            (result, err) => {
-              if (result) {
-                const decodedText = result.getText();
-                console.log('✅ Código detectado:', decodedText);
-                handleDetected(decodedText);
-              }
-              if (err) {
-                const name = String(err.name || '');
-                const msg = String(err.message || '');
-                const isNotFound = /notfound/i.test(name) || /notfound/i.test(msg);
-                if (!isNotFound) console.warn('⚠️ ZXing decode error:', msg);
-              }
-            }
-          );
+          await stopStreamsOnly();
+          // decodeFromConstraints usa getUserMedia internamente com as constraints fornecidas
+          await codeReader.decodeFromConstraints(constraints, videoEl, cb);
           return true;
         } catch (e) {
-          console.warn(`Falha ao iniciar com ${hint || (deviceId ? 'deviceId' : 'auto')}:`, e);
-          await stopAll();
+          console.warn('Falha decodeFromConstraints:', hint, e);
+          await stopStreamsOnly();
+          await new Promise(r => setTimeout(r, 300)); // pequeno cooldown no Android
           return false;
         }
       };
 
-      // 1) tenta deviceId selecionado
-      let ok = await tryStart(selectedDeviceId, 'deviceId selecionado');
-
-      // 2) fallback: facingMode environment via getUserMedia manual, colando stream no <video>
-      if (!ok) {
-        try {
-          console.log('Tentando fallback getUserMedia facingMode: environment');
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: 'environment' } },
+      // Tentativa 1: deviceId exato (selec. do usuário)
+      let ok = false;
+      if (selectedDeviceId) {
+        ok = await tryConstraints(
+          {
             audio: false,
-          });
-          // aplica stream manualmente
-          videoEl.srcObject = stream;
-          videoEl.muted = true;
-          // iOS precisa playsInline + autoPlay + gesto; já definido no elemento
-          await videoEl.play().catch(err => console.warn('video.play falhou:', err));
-          // depois pede ao ZXing para ler do elemento de vídeo atual (sem abrir dispositivo)
-          console.log('Iniciando decodeFromVideoElement (stream já ativo)');
-          await codeReader.decodeFromVideoDevice(
-            undefined, // não force deviceId, ZXing só lerá o vídeo atual
-            videoEl,
-            (result, err) => {
-              if (result) {
-                const decodedText = result.getText();
-                console.log('✅ Código detectado:', decodedText);
-                handleDetected(decodedText);
-              }
-              if (err) {
-                const name = String(err.name || '');
-                const msg = String(err.message || '');
-                const isNotFound = /notfound/i.test(name) || /notfound/i.test(msg);
-                if (!isNotFound) console.warn('⚠️ ZXing decode error:', msg);
-              }
+            video: {
+              deviceId: { exact: selectedDeviceId },
+              facingMode: 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            } as MediaTrackConstraints
+          },
+          'deviceId exato'
+        );
+      }
+
+      // Tentativa 2: facingMode environment (mais compatível no Android)
+      if (!ok) {
+        ok = await tryConstraints(
+          {
+            audio: false,
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
             }
-          );
-          ok = true;
-        } catch (e) {
-          console.warn('Fallback getUserMedia environment falhou:', e);
-          await stopAll();
-          ok = false;
-        }
+          },
+          'facingMode environment'
+        );
       }
 
-      // 3) último fallback: auto (sem deviceId)
+      // Tentativa 3: genérica (video: true)
       if (!ok) {
-        ok = await tryStart(undefined, 'auto (sem deviceId)');
+        ok = await tryConstraints({ video: true, audio: false }, 'genérica');
       }
 
-      if (!ok) {
-        throw new Error('Não foi possível iniciar a câmera no dispositivo (após todas as tentativas)');
-      }
+      if (!ok) throw new Error('Não foi possível iniciar a câmera no Android após fallbacks');
 
       setScannerState('ready');
-      console.log('✅ Scanner iniciado com sucesso');
-
+      console.log('✅ Scanner iniciado com sucesso (constraints)');
     } catch (err) {
       console.error('❌ initZXing erro:', err);
       setScannerState('error');
@@ -174,15 +170,13 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
         description: String((err as Error).message || err),
         variant: 'destructive',
       });
-      await stopAll();
+      await stopStreamsOnly();
     }
   };
 
-  // troca de câmera: para fluxo e reinicia
   const handleChangeCamera = async (deviceId: string) => {
     try {
       setSelectedDeviceId(deviceId);
-      await stopAll();
       setScannerState('loading');
       await initZXing();
     } catch (e) {

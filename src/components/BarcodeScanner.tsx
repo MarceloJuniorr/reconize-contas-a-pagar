@@ -83,79 +83,102 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       const codeReader = new BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
 
-      console.log('Iniciando decodeFromVideoDevice...', selectedDeviceId);
-      await codeReader.decodeFromVideoDevice(
-        selectedDeviceId, // usa a câmera selecionada
-        videoEl,
-        (result, err) => {
-          if (result) {
-            const decodedText = result.getText();
-            console.log('✅ Código detectado:', decodedText);
-            handleDetected(decodedText);
-          }
-
-          if (err) {
-            const name = String(err.name || '');
-            const msg = String(err.message || '');
-            const isNotFound = /notfound/i.test(name) || /notfound/i.test(msg);
-
-            if (!isNotFound) {
-              console.warn('⚠️ ZXing decode error:', msg);
+      const tryStart = async (deviceId?: string, hint?: string) => {
+        console.log('Iniciando decodeFromVideoDevice...', deviceId || '(auto)', hint || '');
+        try {
+          await codeReader.decodeFromVideoDevice(
+            deviceId,
+            videoEl,
+            (result, err) => {
+              if (result) {
+                const decodedText = result.getText();
+                console.log('✅ Código detectado:', decodedText);
+                handleDetected(decodedText);
+              }
+              if (err) {
+                const name = String(err.name || '');
+                const msg = String(err.message || '');
+                const isNotFound = /notfound/i.test(name) || /notfound/i.test(msg);
+                if (!isNotFound) console.warn('⚠️ ZXing decode error:', msg);
+              }
             }
-          }
+          );
+          return true;
+        } catch (e) {
+          console.warn(`Falha ao iniciar com ${hint || (deviceId ? 'deviceId' : 'auto')}:`, e);
+          await stopAll();
+          return false;
         }
-      );
+      };
+
+      // 1) tenta deviceId selecionado
+      let ok = await tryStart(selectedDeviceId, 'deviceId selecionado');
+
+      // 2) fallback: facingMode environment via getUserMedia manual, colando stream no <video>
+      if (!ok) {
+        try {
+          console.log('Tentando fallback getUserMedia facingMode: environment');
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false,
+          });
+          // aplica stream manualmente
+          videoEl.srcObject = stream;
+          videoEl.muted = true;
+          // iOS precisa playsInline + autoPlay + gesto; já definido no elemento
+          await videoEl.play().catch(err => console.warn('video.play falhou:', err));
+          // depois pede ao ZXing para ler do elemento de vídeo atual (sem abrir dispositivo)
+          console.log('Iniciando decodeFromVideoElement (stream já ativo)');
+          await codeReader.decodeFromVideoDevice(
+            undefined, // não force deviceId, ZXing só lerá o vídeo atual
+            videoEl,
+            (result, err) => {
+              if (result) {
+                const decodedText = result.getText();
+                console.log('✅ Código detectado:', decodedText);
+                handleDetected(decodedText);
+              }
+              if (err) {
+                const name = String(err.name || '');
+                const msg = String(err.message || '');
+                const isNotFound = /notfound/i.test(name) || /notfound/i.test(msg);
+                if (!isNotFound) console.warn('⚠️ ZXing decode error:', msg);
+              }
+            }
+          );
+          ok = true;
+        } catch (e) {
+          console.warn('Fallback getUserMedia environment falhou:', e);
+          await stopAll();
+          ok = false;
+        }
+      }
+
+      // 3) último fallback: auto (sem deviceId)
+      if (!ok) {
+        ok = await tryStart(undefined, 'auto (sem deviceId)');
+      }
+
+      if (!ok) {
+        throw new Error('Não foi possível iniciar a câmera no dispositivo (após todas as tentativas)');
+      }
 
       setScannerState('ready');
-      console.log('✅ ZXing iniciado com sucesso');
+      console.log('✅ Scanner iniciado com sucesso');
 
     } catch (err) {
       console.error('❌ initZXing erro:', err);
       setScannerState('error');
       toast({
-        title: 'Erro ao inicializar scanner',
+        title: 'Erro ao iniciar câmera',
         description: String((err as Error).message || err),
         variant: 'destructive',
       });
-      stopAll();
+      await stopAll();
     }
   };
 
-  const handleDetected = (rawValue: string) => {
-    const decodedText = String(rawValue || '').trim();
-    console.log('🔍 handleDetected - valor bruto:', decodedText);
-
-    if (!decodedText) {
-      console.warn('⚠️ Texto decodificado vazio');
-      return;
-    }
-
-    // Remove espaços e caracteres especiais, mantém só números
-    const clean = decodedText.replace(/\D/g, '');
-    console.log('🔍 Código limpo (só números):', clean, 'tamanho:', clean.length);
-
-    // Boleto bancário: 47 dígitos (linha digitável) ou 44 dígitos (código de barras)
-    // Também aceita outros tamanhos comuns de boletos
-    if (clean.length === 44 || clean.length === 47 || clean.length === 48) {
-      console.log('✅ Código válido detectado! Enviando...', clean);
-      onScan(clean);
-      toast({
-        title: 'Código escaneado com sucesso!',
-        description: `Código de ${clean.length} dígitos detectado.`,
-      });
-      stopAll();
-      onClose();
-    } else {
-      console.warn('⚠️ Código com tamanho inválido:', clean.length, 'dígitos');
-      toast({
-        title: 'Código detectado',
-        description: `Código com ${clean.length} dígitos. Esperado: 44, 47 ou 48 dígitos.`,
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // troca de câmera: para o fluxo atual e reinicia com novo deviceId
+  // troca de câmera: para fluxo e reinicia
   const handleChangeCamera = async (deviceId: string) => {
     try {
       setSelectedDeviceId(deviceId);

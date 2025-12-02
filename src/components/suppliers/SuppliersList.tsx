@@ -1,8 +1,9 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, CreditCard, MapPin, Eye, UserX, UserCheck, History } from 'lucide-react';
-import { useState } from 'react';
+import { Edit, CreditCard, MapPin, Eye, UserX, UserCheck, History, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SupplierForm } from './SupplierForm';
 import { SupplierHistoryModal } from './SupplierHistoryModal';
@@ -41,7 +42,15 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
   const [isEditMode, setIsEditMode] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historySupplier, setHistorySupplier] = useState<{ id: string; name: string } | null>(null);
+  const [searchFilter, setSearchFilter] = useState('');
   const { toast } = useToast();
+
+  const filteredSuppliers = useMemo(() => {
+    if (!searchFilter.trim()) return suppliers;
+    return suppliers.filter(s => 
+      s.name.toLowerCase().includes(searchFilter.toLowerCase())
+    );
+  }, [suppliers, searchFilter]);
 
   const handleViewHistory = (supplier: Supplier) => {
     setHistorySupplier({ id: supplier.id, name: supplier.name });
@@ -129,6 +138,26 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
 
   return (
     <>
+      <div className="mb-4">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      {filteredSuppliers.length === 0 && suppliers.length > 0 ? (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Nenhum fornecedor encontrado com "{searchFilter}"</p>
+          <Button variant="outline" size="sm" onClick={() => setSearchFilter('')} className="mt-2">
+            Limpar busca
+          </Button>
+        </div>
+      ) : (
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -141,7 +170,7 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
             </TableRow>
           </TableHeader>
           <TableBody>
-            {suppliers.map((supplier) => (
+            {filteredSuppliers.map((supplier) => (
               <TableRow key={supplier.id}>
                 <TableCell className="font-medium">
                   <div>
@@ -216,6 +245,7 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
           </TableBody>
         </Table>
       </div>
+      )}
 
       {/* Dialog de Detalhes */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>

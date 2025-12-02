@@ -1,10 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Trash2, CreditCard, MapPin, Eye, UserX, UserCheck } from 'lucide-react';
+import { Edit, CreditCard, MapPin, Eye, UserX, UserCheck, History } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SupplierForm } from './SupplierForm';
+import { SupplierHistoryModal } from './SupplierHistoryModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -38,7 +39,14 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historySupplier, setHistorySupplier] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
+
+  const handleViewHistory = (supplier: Supplier) => {
+    setHistorySupplier({ id: supplier.id, name: supplier.name });
+    setIsHistoryOpen(true);
+  };
 
   const formatAddress = (supplier: Supplier) => {
     const parts = [
@@ -175,6 +183,14 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
                       title="Visualizar detalhes"
                     >
                       <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewHistory(supplier)}
+                      title="Histórico de contas"
+                    >
+                      <History className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -322,6 +338,19 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Histórico */}
+      {historySupplier && (
+        <SupplierHistoryModal
+          isOpen={isHistoryOpen}
+          onClose={() => {
+            setIsHistoryOpen(false);
+            setHistorySupplier(null);
+          }}
+          supplierId={historySupplier.id}
+          supplierName={historySupplier.name}
+        />
+      )}
     </>
   );
 };

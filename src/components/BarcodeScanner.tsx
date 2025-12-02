@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { X, Camera, RefreshCw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 
 interface BarcodeScannerProps {
   isOpen: boolean;
@@ -13,155 +13,187 @@ interface BarcodeScannerProps {
 }
 
 export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps) => {
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const decoderRef = useRef<any | null>(null);
   const [scannerState, setScannerState] = useState<'loading' | 'ready' | 'error' | 'https-required'>('loading');
   const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
-      // Pequeno delay para garantir que o DOM está pronto
-      const timer = setTimeout(() => {
-        checkEnvironmentAndInit();
-      }, 100);
-      return () => clearTimeout(timer);
+      setScannerState('loading');
+      setTimeout(() => startFlow(), 100);
     } else {
-      cleanup();
+      stopAll();
     }
+
+    return () => stopAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  const checkEnvironmentAndInit = () => {
-    console.log('Verificando ambiente e inicializando scanner...');
-    console.log('User Agent:', navigator.userAgent);
-    console.log('Protocolo:', location.protocol);
-    console.log('Hostname:', location.hostname);
+  const startFlow = async () => {
+    console.log('BarcodeScanner: startFlow');
 
-    // Verificar se está em HTTPS (obrigatório para câmera no mobile)
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      console.error('HTTPS é obrigatório para câmera no mobile');
       setScannerState('https-required');
       return;
     }
 
-    // Verificar suporte do navegador
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       console.error('MediaDevices não suportado');
       setScannerState('error');
       return;
     }
 
-    // Inicializar scanner diretamente - deixar a biblioteca gerenciar as permissões
-    initializeScanner();
-  };
-
-  const cleanup = () => {
-    console.log('Limpando scanner...');
-    if (scannerRef.current) {
-      scannerRef.current.clear().catch(console.error);
-      scannerRef.current = null;
-    }
-  };
-
-  const initializeScanner = () => {
     try {
-      // Verificar se o elemento DOM existe
-      const readerElement = document.getElementById("barcode-reader");
-      if (!readerElement) {
-        console.log('Elemento barcode-reader não encontrado, aguardando...');
-        setTimeout(() => initializeScanner(), 200);
+      // solicita permissão explicitamente
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      stream.getTracks().forEach(t => t.stop());
+    } catch (err) {
+      console.error('Permissão negada:', err);
+      setScannerState('error');
+      toast({
+        title: 'Permissão de câmera necessária',
+        description: 'Permita o acesso à câmera para escanear boletos.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    await initZXing();
+  };
+
+  const initZXing = async () => {
+    try {
+      const videoEl = videoRef.current;
+      if (!videoEl) {
+        console.error('videoRef não definido');
+        setScannerState('error');
         return;
       }
 
-      console.log('Inicializando HTML5QrcodeScanner...');
-      
-      const scanner = new Html5QrcodeScanner(
-        "barcode-reader",
-        {
-          fps: 10,
-          qrbox: { width: 300, height: 150 },
-          aspectRatio: 2.0,
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.CODE_39,
-            Html5QrcodeSupportedFormats.ITF,
-            Html5QrcodeSupportedFormats.QR_CODE,
-          ],
-          showTorchButtonIfSupported: true,
-          showZoomSliderIfSupported: true,
-          // Configurações para otimizar para mobile
-          rememberLastUsedCamera: false,
-        },
-        false // verbose = false
-      );
+      console.log('Inicializando ZXing BrowserMultiFormatReader...');
 
-      scanner.render(
-        (decodedText) => {
-          console.log('Código escaneado:', decodedText);
-          handleScanSuccess(decodedText);
-        },
-        (errorMessage) => {
-          // Silenciar erros de scan contínuo (normal quando não há código na tela)
-          if (!errorMessage.includes('NotFound') && !errorMessage.includes('No QR code found')) {
-            console.warn('Scan error:', errorMessage);
+      const codeReader = new BrowserMultiFormatReader();
+      codeReaderRef.current = codeReader;
+
+      // decodeFromVideoDevice = camera automática, contínuo
+      const decoderPromise = codeReader.decodeFromVideoDevice(
+        undefined, // camera id undefined = seleciona automaticamente
+        videoEl,
+        (result: any, err: any) => {
+          if (result) {
+            const decodedText = result.text;
+            console.log('Código detectado:', decodedText);
+            handleDetected(decodedText);
+            return;
+          }
+
+          if (err) {
+            const name = String(err.name || '');
+            const msg = String(err.message || err);
+            const isNotFound = /notfound/i.test(name) || /notfound/i.test(msg);
+            if (!isNotFound) {
+              console.warn('ZXing decode error:', msg);
+            }
           }
         }
       );
 
-      scannerRef.current = scanner;
-      setScannerState('ready');
-      console.log('Scanner inicializado com sucesso');
+      // tenta garantir que o vídeo seja reproduzido e visível
+      decoderRef.current = decoderPromise;
+      // aguarda curto período para o stream ser ligado
+      setTimeout(async () => {
+        try {
+          const s = videoEl.srcObject as MediaStream | null;
+          console.log('video.srcObject após start:', s);
+          if (s && s.getTracks && s.getTracks().length > 0) {
+            // tenta tocar o vídeo (some browsers exigem play() explícito)
+            await videoEl.play().catch((e) => console.warn('video.play() falhou:', e));
+            console.log('video.play() chamado');
+          } else {
+            console.warn('Nenhuma track encontrada no srcObject ainda');
+          }
+        } catch (e) {
+          console.warn('Erro ao forçar play do vídeo:', e);
+        }
+      }, 500);
 
-    } catch (error) {
-      console.error('Erro ao inicializar scanner:', error);
+      setScannerState('ready');
+      console.log('ZXing iniciado com sucesso');
+
+    } catch (err) {
+      console.error('initZXing erro:', err);
       setScannerState('error');
       toast({
-        title: "Erro ao inicializar câmera",
-        description: "Não foi possível inicializar o scanner. Verifique as permissões da câmera.",
-        variant: "destructive",
+        title: 'Erro ao inicializar scanner',
+        description: String((err as Error).message || err),
+        variant: 'destructive',
       });
+      stopAll();
     }
   };
 
-  const handleScanSuccess = (decodedText: string) => {
-    // Validar se é um código de boleto brasileiro
-    const cleanCode = decodedText.replace(/\D/g, '');
-    
-    if (cleanCode.length === 44 || cleanCode.length === 47) {
-      onScan(cleanCode);
-      handleClose();
-      
-      // Vibração no celular (se suportado)
-      if (navigator.vibrate) {
-        navigator.vibrate(200);
-      }
-      
+  const handleDetected = (rawValue: string) => {
+    const decodedText = String(rawValue || '').trim();
+    console.log('handleDetected:', decodedText);
+    if (!decodedText) return;
+
+    // valida boleto: 44 ou 47 dígitos numéricos
+    const clean = decodedText.replace(/\D/g, '');
+    if (clean.length === 44 || clean.length === 47) {
+      onScan(clean);
       toast({
-        title: "Código escaneado",
-        description: "Código de barras detectado com sucesso!",
+        title: 'Código escaneado',
+        description: 'Código detectado com sucesso.',
       });
+      stopAll();
+      onClose();
     } else {
       toast({
-        title: "Código inválido",
-        description: "O código escaneado não é um boleto brasileiro válido.",
-        variant: "destructive",
+        title: 'Código inválido',
+        description: 'O código escaneado não é um boleto brasileiro válido.',
+        variant: 'destructive',
       });
     }
   };
 
-  const handleClose = () => {
-    cleanup();
+  const stopAll = async () => {
+    console.log('BarcodeScanner: stopAll');
+
+    if (decoderRef.current) {
+      try {
+        await decoderRef.current;
+      } catch (e) {
+        console.warn('Erro parar decoder:', e);
+      }
+      decoderRef.current = null;
+    }
+
+    if (codeReaderRef.current) {
+      try {
+        codeReaderRef.current.reset();
+      } catch (e) {
+        console.warn('Erro reset codeReader:', e);
+      }
+      codeReaderRef.current = null;
+    }
+
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+      } catch (e) {
+        console.warn('Erro limpar videoRef', e);
+      }
+    }
+
     setScannerState('loading');
-    onClose();
   };
 
   const retryScanner = () => {
-    console.log('Tentando novamente...');
-    setScannerState('loading');
-    cleanup();
-    setTimeout(() => {
-      checkEnvironmentAndInit();
-    }, 500);
+    stopAll();
+    setTimeout(() => startFlow(), 300);
   };
 
   const renderContent = () => {
@@ -177,15 +209,11 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
                   <p className="text-sm text-muted-foreground mt-1">
                     Preparando o scanner de código de barras...
                   </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Você pode ser solicitado a permitir o acesso à câmera
-                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
         );
-
       case 'https-required':
         return (
           <Card>
@@ -197,15 +225,11 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
                   <p className="text-sm text-muted-foreground mt-1">
                     O acesso à câmera requer conexão segura (HTTPS)
                   </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Certifique-se de que está acessando o site via HTTPS
-                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
         );
-
       case 'error':
         return (
           <Card>
@@ -217,9 +241,6 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
                   <p className="text-sm text-muted-foreground mt-1">
                     Não foi possível acessar a câmera do dispositivo
                   </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Verifique se permitiu o acesso à câmera nas configurações do navegador
-                  </p>
                 </div>
                 <Button onClick={retryScanner} variant="outline" className="w-full">
                   <RefreshCw className="h-4 w-4 mr-2" />
@@ -229,33 +250,43 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
             </CardContent>
           </Card>
         );
-
       case 'ready':
         return (
           <Card>
             <CardContent className="p-4">
-              <div className="text-center space-y-2">
+              <div className="text-center">
                 <p className="text-sm text-muted-foreground">
                   Aponte a câmera para o código de barras do boleto
                 </p>
-                <div 
-                  id="barcode-reader" 
-                  className="w-full"
-                  style={{ minHeight: '300px' }}
-                />
               </div>
             </CardContent>
           </Card>
         );
-
       default:
         return null;
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={() => { stopAll(); onClose(); }}>
       <DialogContent className="w-[95vw] max-w-md p-4">
+        {/* único elemento <video> no DOM — sempre presente (visível quando ready) */}
+        <video
+          ref={videoRef}
+          style={{
+            display: 'block', // nunca remova do fluxo para não impedir inicialização do stream
+            visibility: scannerState === 'ready' ? 'visible' : 'hidden',
+            opacity: scannerState === 'ready' ? 1 : 0,
+            width: '100%',
+            minHeight: 300,
+            backgroundColor: '#000',
+            objectFit: 'cover',
+            borderRadius: '0.5rem',
+          }}
+          playsInline
+          muted
+          autoPlay
+        />
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center justify-between text-lg">
             <div className="flex items-center gap-2">
@@ -265,7 +296,7 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleClose}
+              onClick={() => { stopAll(); onClose(); }}
               className="h-8 w-8"
             >
               <X className="h-4 w-4" />
@@ -278,7 +309,7 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
 
           {scannerState !== 'ready' && (
             <div className="flex justify-center gap-2">
-              <Button variant="outline" onClick={handleClose} className="flex-1">
+              <Button variant="outline" onClick={() => { stopAll(); onClose(); }} className="flex-1">
                 Cancelar
               </Button>
             </div>

@@ -43,11 +43,12 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historySupplier, setHistorySupplier] = useState<{ id: string; name: string } | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
+  const [openCardActions, setOpenCardActions] = useState<string | null>(null);
   const { toast } = useToast();
 
   const filteredSuppliers = useMemo(() => {
     if (!searchFilter.trim()) return suppliers;
-    return suppliers.filter(s => 
+    return suppliers.filter(s =>
       s.name.toLowerCase().includes(searchFilter.toLowerCase())
     );
   }, [suppliers, searchFilter]);
@@ -65,7 +66,7 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
       supplier.address_city,
       supplier.address_state
     ].filter(Boolean);
-    
+
     return parts.length > 0 ? parts.join(', ') : 'Não informado';
   };
 
@@ -158,57 +159,42 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
           </Button>
         </div>
       ) : (
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome/Razão Social</TableHead>
-              <TableHead>Documento</TableHead>
-              <TableHead>Contato</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <div className="rounded-md border">
+          {/* Mobile: cards */}
+          <div className="md:hidden divide-y">
             {filteredSuppliers.map((supplier) => (
-              <TableRow key={supplier.id}>
-                <TableCell className="font-medium">
-                  <div>
-                    <div>{supplier.name}</div>
+              <div
+                key={supplier.id}
+                className="p-4 hover:bg-muted/50 cursor-pointer"
+                onClick={() => setOpenCardActions(openCardActions === supplier.id ? null : supplier.id)}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{supplier.name}</div>
                     {supplier.observations && (
-                      <div className="text-sm text-muted-foreground truncate max-w-xs">
+                      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {supplier.observations}
                       </div>
                     )}
                   </div>
-                </TableCell>
-                <TableCell>
-                  {supplier.document || 'Não informado'}
-                </TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    {supplier.email && (
-                      <div className="text-sm">{supplier.email}</div>
-                    )}
-                    {supplier.phone && (
-                      <div className="text-sm text-muted-foreground">{supplier.phone}</div>
-                    )}
-                    {!supplier.email && !supplier.phone && (
-                      <div className="text-sm text-muted-foreground">Não informado</div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={supplier.active ? "default" : "secondary"}>
+                  <Badge variant={supplier.active ? "default" : "secondary"} className="ml-2">
                     {supplier.active ? 'Ativo' : 'Inativo'}
                   </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
+                </div>
+
+                <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                  {supplier.email && <div>{supplier.email}</div>}
+                  {supplier.phone && <div>{supplier.phone}</div>}
+                  {supplier.document && <div>Doc: {supplier.document}</div>}
+                </div>
+
+                {/* Ações visíveis ao clicar no card */}
+                {openCardActions === supplier.id && (
+                  <div className="flex flex-wrap gap-2 mt-3">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleViewDetails(supplier)}
+                      onClick={(e) => { e.stopPropagation(); handleViewDetails(supplier); }}
                       title="Visualizar detalhes"
                     >
                       <Eye className="h-4 w-4" />
@@ -216,7 +202,7 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleViewHistory(supplier)}
+                      onClick={(e) => { e.stopPropagation(); handleViewHistory(supplier); }}
                       title="Histórico de contas"
                     >
                       <History className="h-4 w-4" />
@@ -224,7 +210,7 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleEditSupplier(supplier)}
+                      onClick={(e) => { e.stopPropagation(); handleEditSupplier(supplier); }}
                       title="Editar fornecedor"
                     >
                       <Edit className="h-4 w-4" />
@@ -232,19 +218,107 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleToggleActive(supplier)}
+                      onClick={(e) => { e.stopPropagation(); handleToggleActive(supplier); }}
                       className={supplier.active ? "text-destructive hover:text-destructive" : "text-green-600 hover:text-green-600"}
                       title={supplier.active ? "Inativar fornecedor" : "Reativar fornecedor"}
                     >
                       {supplier.active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                     </Button>
                   </div>
-                </TableCell>
-              </TableRow>
+                )}
+              </div>
             ))}
-          </TableBody>
-        </Table>
-      </div>
+          </div>
+
+          {/* Desktop/tablet: manter tabela original */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome/Razão Social</TableHead>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSuppliers.map((supplier) => (
+                  <TableRow key={supplier.id}>
+                    <TableCell className="font-medium">
+                      <div>
+                        <div>{supplier.name}</div>
+                        {supplier.observations && (
+                          <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            {supplier.observations}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {supplier.document || 'Não informado'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        {supplier.email && (
+                          <div className="text-sm">{supplier.email}</div>
+                        )}
+                        {supplier.phone && (
+                          <div className="text-sm text-muted-foreground">{supplier.phone}</div>
+                        )}
+                        {!supplier.email && !supplier.phone && (
+                          <div className="text-sm text-muted-foreground">Não informado</div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={supplier.active ? "default" : "secondary"}>
+                        {supplier.active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewDetails(supplier)}
+                          title="Visualizar detalhes"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewHistory(supplier)}
+                          title="Histórico de contas"
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditSupplier(supplier)}
+                          title="Editar fornecedor"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleActive(supplier)}
+                          className={supplier.active ? "text-destructive hover:text-destructive" : "text-green-600 hover:text-green-600"}
+                          title={supplier.active ? "Inativar fornecedor" : "Reativar fornecedor"}
+                        >
+                          {supplier.active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       )}
 
       {/* Dialog de Detalhes */}
@@ -255,12 +329,12 @@ export const SuppliersList = ({ suppliers, loading, onUpdate }: SuppliersListPro
               {isEditMode ? 'Editar Fornecedor' : 'Detalhes do Fornecedor'}
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedSupplier && (
             <>
               {isEditMode ? (
-                <SupplierForm 
-                  onSuccess={handleSupplierUpdated} 
+                <SupplierForm
+                  onSuccess={handleSupplierUpdated}
                   initialData={selectedSupplier}
                 />
               ) : (

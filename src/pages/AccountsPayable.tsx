@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+const timeZone = 'America/Sao_Paulo';
+const locale = 'fr-CA'; // Esse locale força o formato YYYY-MM-DD
+
+
 interface DashboardStats {
   totalOpen: number;
   totalOverdue: number;
@@ -20,6 +24,15 @@ interface DashboardStats {
 }
 
 type DashboardFilter = 'all' | 'open' | 'overdue' | 'due_today' | 'due_tomorrow' | 'due_next_week' | 'paid_today' | 'paid_last_30_days';
+
+function getDataBrasil(diasParaAdicionar = 0) {
+  const data = new Date();
+  data.setDate(data.getDate() + diasParaAdicionar);
+
+  return data.toLocaleDateString('fr-CA', {
+    timeZone: 'America/Sao_Paulo'
+  });
+}
 
 const AccountsPayable = () => {
   const [accounts, setAccounts] = useState([]);
@@ -42,19 +55,15 @@ const AccountsPayable = () => {
     try {
       console.log('fetchAccounts called with:', { customDateFrom, customDateUntil, filter });
 
-      const todayNewDate = new Date();
-      const todayStr = todayNewDate.getFullYear() + '-' +
-        String(todayNewDate.getMonth() + 1).padStart(2, '0') + '-' +
-        String(todayNewDate.getDate()).padStart(2, '0');
-      const today = todayStr
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const today = getDataBrasil(0);
+      const tomorrow = getDataBrasil(1);
+      const nextWeek = getDataBrasil(7);
 
       let query = supabase
         .from('accounts_payable')
         .select(`
           *,
-          suppliers(name),
+          suppliers(name),  
           cost_centers(name, code)
         `);
 
@@ -90,7 +99,7 @@ const AccountsPayable = () => {
             break;
           }
           case 'paid_last_30_days': {
-            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const thirtyDaysAgo = getDataBrasil(-30);
             query = supabase
               .from('accounts_payable')
               .select('*, suppliers(name), cost_centers(name,code), payments!inner(payment_date)')
@@ -131,13 +140,10 @@ const AccountsPayable = () => {
 
   const fetchStats = useCallback(async () => {
     try {
-      const todayNewDate = new Date();
-      const todayStr = todayNewDate.getFullYear() + '-' +
-        String(todayNewDate.getMonth() + 1).padStart(2, '0') + '-' +
-        String(todayNewDate.getDate()).padStart(2, '0');
-      const today = todayStr
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      const today = getDataBrasil(0);
+      const tomorrow = getDataBrasil(1);
+      const nextWeek = getDataBrasil(7);
 
       // Total em aberto
       const { data: openAccounts } = await supabase
@@ -181,7 +187,7 @@ const AccountsPayable = () => {
         .eq('payment_date', today);
 
       // Pago nos últimos 30 dias
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const thirtyDaysAgo = getDataBrasil(-30);
       const { data: paidLast30DaysData } = await supabase
         .from('payments')
         .select('amount_paid')

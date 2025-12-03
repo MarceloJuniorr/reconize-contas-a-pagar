@@ -327,7 +327,7 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
 
         <div className="space-y-4">
           {/* Summary Cards */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="bg-muted/50 rounded-lg p-4">
               <p className="text-sm text-muted-foreground">Total de Contas</p>
               <p className="text-2xl font-bold">{filteredAndSortedAccounts.length}</p>
@@ -444,7 +444,7 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
               {/* Mobile: cards com filtros aplicados */}
               <div className="md:hidden divide-y">
                 {filteredAndSortedAccounts.map((account) => (
-                  <div key={account.id} className="p-4 hover:bg-muted/50">
+                  <div key={account.id} className="p-3 hover:bg-muted/50">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="font-medium text-sm line-clamp-2">{account.description}</div>

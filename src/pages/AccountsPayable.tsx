@@ -367,20 +367,6 @@ const AccountsPayable = () => {
               </DialogContent>
             </Dialog>
 
-            <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Importar CSV
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
-                <DialogHeader>
-                  <DialogTitle>Importar Contas via CSV</DialogTitle>
-                </DialogHeader>
-                <CSVImport onSuccess={handleImportSuccess} />
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
 

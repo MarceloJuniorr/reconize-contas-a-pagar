@@ -620,32 +620,6 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
       {/* Mobile filters panel */}
       {mobileShowFilters && (
         <div className="md:hidden bg-muted/50 rounded-lg p-4 space-y-4 mb-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Filtrar por Data</label>
-            <Select value={mobileFilterDateType} onValueChange={(value: any) => setMobileFilterDateType(value)}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as datas</SelectItem>
-                <SelectItem value="day">Por Dia</SelectItem>
-                <SelectItem value="month">Por Mês</SelectItem>
-                <SelectItem value="year">Por Ano</SelectItem>
-              </SelectContent>
-            </Select>
-            {mobileFilterDateType !== 'all' && (
-              <Input
-                placeholder={
-                  mobileFilterDateType === 'day' ? 'dd/mm/yyyy' :
-                    mobileFilterDateType === 'month' ? 'mm/yyyy' :
-                      'yyyy'
-                }
-                value={mobileFilterDateValue}
-                onChange={(e) => setMobileFilterDateValue(formatDateInput(e.target.value, mobileFilterDateType))}
-                className="h-8 text-xs"
-              />
-            )}
-          </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Fornecedor</label>

@@ -125,7 +125,7 @@ const AccountsPayable = () => {
         }
       } else {
         // Filtro padrão (hoje até próxima semana)
-        query = query.or(`due_date.lt.${today},and(due_date.gte.${today},due_date.lte.${nextWeek})`);
+        query = query.eq('due_date', today);
       }
 
       const { data, error } = await query.order('due_date', { ascending: true });

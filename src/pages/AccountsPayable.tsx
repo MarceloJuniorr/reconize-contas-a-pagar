@@ -229,7 +229,7 @@ const AccountsPayable = () => {
 
   return (
     <div className="w-full overflow-x-hidden">
-      <div className="container mx-auto px-4 space-y-6 max-w-full">
+      <div className="container mx-auto px-0 space-y-6 max-w-full">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Contas a Pagar</h1>

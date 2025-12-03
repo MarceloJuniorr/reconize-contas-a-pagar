@@ -42,7 +42,11 @@ const AccountsPayable = () => {
     try {
       console.log('fetchAccounts called with:', { customDateFrom, customDateUntil, filter });
 
-      const today = new Date().toISOString().split('T')[0];
+      const todayNewDate = new Date();
+      const todayStr = todayNewDate.getFullYear() + '-' +
+        String(todayNewDate.getMonth() + 1).padStart(2, '0') + '-' +
+        String(todayNewDate.getDate()).padStart(2, '0');
+      const today = todayStr
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -127,7 +131,11 @@ const AccountsPayable = () => {
 
   const fetchStats = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const todayNewDate = new Date();
+      const todayStr = todayNewDate.getFullYear() + '-' +
+        String(todayNewDate.getMonth() + 1).padStart(2, '0') + '-' +
+        String(todayNewDate.getDate()).padStart(2, '0');
+      const today = todayStr
       const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 

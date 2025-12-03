@@ -39,6 +39,14 @@ interface ColumnFilters {
   payment_type: string;
   cost_center_name: string;
 }
+function getDataBrasil(diasParaAdicionar = 0) {
+  const data = new Date();
+  data.setDate(data.getDate() + diasParaAdicionar);
+
+  return data.toLocaleDateString('fr-CA', {
+    timeZone: 'America/Sao_Paulo'
+  });
+}
 
 export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName }: SupplierHistoryModalProps) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -273,7 +281,7 @@ export const SupplierHistoryModal = ({ isOpen, onClose, supplierId, supplierName
   };
 
   const getStatusBadge = (status: string, dueDate: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getDataBrasil(0);
 
     if (status === 'pago') {
       return <Badge className="bg-green-500 hover:bg-green-600">Pago</Badge>;

@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, DollarSign, AlertTriangle, CheckCircle, Calendar, Upload } from 'lucide-react';
+import { Plus, DollarSign, AlertTriangle, CheckCircle, Calendar, Upload, Filter, X } from 'lucide-react';
 import { AccountForm } from '@/components/accounts-payable/AccountForm';
 import { AccountsList } from '@/components/accounts-payable/AccountsList';
 import { CSVImport } from '@/components/accounts-payable/CSVImport';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -49,6 +52,9 @@ const AccountsPayable = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<DashboardFilter>('all');
+  const [dateFilterOpen, setDateFilterOpen] = useState(false);
+  const [customDateFrom, setCustomDateFrom] = useState<string>('');
+  const [customDateUntil, setCustomDateUntil] = useState<string>('');
   const { toast } = useToast();
 
   const fetchAccounts = useCallback(async (customDateFrom?: Date, customDateUntil?: Date, filter?: DashboardFilter) => {
@@ -238,7 +244,29 @@ const AccountsPayable = () => {
   const handleDashboardCardClick = (filter: DashboardFilter) => {
     setActiveFilter(filter);
     setLoading(true);
+    // Limpar filtros de data customizados ao clicar em card
+    setCustomDateFrom('');
+    setCustomDateUntil('');
     fetchAccounts(undefined, undefined, filter);
+  };
+
+  const handleApplyDateFilter = () => {
+    const fromDate = customDateFrom ? new Date(customDateFrom + 'T12:00:00') : undefined;
+    const untilDate = customDateUntil ? new Date(customDateUntil + 'T12:00:00') : undefined;
+
+    setActiveFilter('all');
+    setDateFilterOpen(false);
+    setLoading(true);
+    fetchAccounts(fromDate, untilDate);
+  };
+
+  const handleClearDateFilter = () => {
+    setCustomDateFrom('');
+    setCustomDateUntil('');
+    setDateFilterOpen(false);
+    setActiveFilter('all');
+    setLoading(true);
+    fetchAccounts();
   };
 
   return (
@@ -253,6 +281,77 @@ const AccountsPayable = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
+            {/* Filtro de Data Mobile */}
+            <Popover open={dateFilterOpen} onOpenChange={setDateFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filtrar por Data
+                  {(customDateFrom || customDateUntil) && (
+                    <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                      1
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium leading-none">Filtrar por Período</h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDateFilterOpen(false)}
+                      className="h-auto p-0 hover:bg-transparent"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="date-from">Data Inicial</Label>
+                      <Input
+                        id="date-from"
+                        type="date"
+                        value={customDateFrom}
+                        onChange={(e) => setCustomDateFrom(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="date-until">Data Final</Label>
+                      <Input
+                        id="date-until"
+                        type="date"
+                        value={customDateUntil}
+                        onChange={(e) => setCustomDateUntil(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearDateFilter}
+                      className="flex-1"
+                    >
+                      Limpar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleApplyDateFilter}
+                      className="flex-1"
+                      disabled={!customDateFrom && !customDateUntil}
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -404,13 +503,15 @@ const AccountsPayable = () => {
           <CardHeader>
             <CardTitle>
               Lista de Contas a Pagar
-              {activeFilter !== 'all' && (
+              {(activeFilter !== 'all' || customDateFrom || customDateUntil) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="ml-2"
                   onClick={() => {
                     setActiveFilter('all');
+                    setCustomDateFrom('');
+                    setCustomDateUntil('');
                     setLoading(true);
                     fetchAccounts();
                   }}
@@ -420,10 +521,17 @@ const AccountsPayable = () => {
               )}
             </CardTitle>
             <CardDescription>
-              {activeFilter !== 'all'
-                ? 'Mostrando contas filtradas pelo dashboard'
-                : 'Visualize e gerencie todas as contas cadastradas'
-              }
+              {activeFilter !== 'all' ? (
+                'Mostrando contas filtradas pelo dashboard'
+              ) : customDateFrom || customDateUntil ? (
+                `Período: ${customDateFrom ? new Date(customDateFrom + 'T12:00:00').toLocaleDateString('pt-BR', {
+                  timeZone: 'America/Sao_Paulo'
+                }) : '...'} até ${customDateUntil ? new Date(customDateUntil + 'T12:00:00').toLocaleDateString('pt-BR', {
+                  timeZone: 'America/Sao_Paulo'
+                }) : '...'}`
+              ) : (
+                'Visualize e gerencie todas as contas cadastradas'
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -436,6 +544,8 @@ const AccountsPayable = () => {
               }}
               onDateFilterChange={(fromDate, untilDate) => {
                 setActiveFilter('all');
+                setCustomDateFrom(fromDate ? fromDate.toISOString().split('T')[0] : '');
+                setCustomDateUntil(untilDate ? untilDate.toISOString().split('T')[0] : '');
                 console.log('Date filter changed:', { fromDate, untilDate });
                 fetchAccounts(fromDate, untilDate);
               }}

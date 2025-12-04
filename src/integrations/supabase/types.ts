@@ -120,6 +120,83 @@ export type Database = {
           },
         ]
       }
+      accounts_receivable: {
+        Row: {
+          amount: number
+          created_at: string | null
+          created_by: string | null
+          customer_id: string
+          due_date: string
+          id: string
+          notes: string | null
+          paid_amount: number | null
+          paid_at: string | null
+          paid_by: string | null
+          sale_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          created_by?: string | null
+          customer_id: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          paid_by?: string | null
+          sale_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          paid_by?: string | null
+          sale_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_receivable_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attachments: {
         Row: {
           account_id: string | null
@@ -481,6 +558,50 @@ export type Database = {
           },
         ]
       }
+      payment_methods: {
+        Row: {
+          active: boolean | null
+          allow_installments: boolean | null
+          code: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          max_installments: number | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          allow_installments?: boolean | null
+          code: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          max_installments?: number | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          allow_installments?: boolean | null
+          code?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          max_installments?: number | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           account_id: string | null
@@ -734,6 +855,184 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      sale_items: {
+        Row: {
+          created_at: string | null
+          discount_amount: number | null
+          discount_type: string | null
+          discount_value: number | null
+          id: string
+          product_id: string
+          quantity: number
+          sale_id: string
+          total: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
+          id?: string
+          product_id: string
+          quantity: number
+          sale_id: string
+          total: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
+          id?: string
+          product_id?: string
+          quantity?: number
+          sale_id?: string
+          total?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          amount_credit: number | null
+          amount_paid: number | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_id: string
+          delivery_address_id: string | null
+          delivery_date: string | null
+          discount_amount: number | null
+          discount_type: string | null
+          discount_value: number | null
+          id: string
+          installments: number | null
+          notes: string | null
+          payment_method_id: string | null
+          payment_status: string
+          sale_number: string
+          status: string
+          store_id: string
+          subtotal: number
+          total: number
+          updated_at: string | null
+        }
+        Insert: {
+          amount_credit?: number | null
+          amount_paid?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id: string
+          delivery_address_id?: string | null
+          delivery_date?: string | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
+          id?: string
+          installments?: number | null
+          notes?: string | null
+          payment_method_id?: string | null
+          payment_status?: string
+          sale_number: string
+          status?: string
+          store_id: string
+          subtotal?: number
+          total?: number
+          updated_at?: string | null
+        }
+        Update: {
+          amount_credit?: number | null
+          amount_paid?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string
+          delivery_address_id?: string | null
+          delivery_date?: string | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
+          id?: string
+          installments?: number | null
+          notes?: string | null
+          payment_method_id?: string | null
+          payment_status?: string
+          sale_number?: string
+          status?: string
+          store_id?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_delivery_address_id_fkey"
+            columns: ["delivery_address_id"]
+            isOneToOne: false
+            referencedRelation: "customer_delivery_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_movements: {
         Row: {
@@ -1165,6 +1464,7 @@ export type Database = {
         Returns: boolean
       }
       generate_receipt_number: { Args: { p_store_id: string }; Returns: string }
+      generate_sale_number: { Args: { p_store_id: string }; Returns: string }
       get_account_attachments: {
         Args: { p_account_id: string }
         Returns: {

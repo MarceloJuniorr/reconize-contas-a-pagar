@@ -365,8 +365,8 @@ const PDV = () => {
 
       // Create stock movements (exits)
       for (const item of cart) {
-        // Update stock
-        const { error: stockError } = await supabase.rpc('update_stock_quantity', {
+        // Use RPC to properly decrement stock
+        await (supabase as any).rpc('update_stock_quantity', {
           p_product_id: item.product_id,
           p_store_id: selectedStoreId,
           p_quantity: -item.quantity

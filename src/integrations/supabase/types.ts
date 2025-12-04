@@ -1496,6 +1496,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_stock_quantity: {
+        Args: { p_product_id: string; p_quantity: number; p_store_id: string }
+        Returns: undefined
+      }
       user_has_any_store: { Args: { _user_id: string }; Returns: boolean }
       user_has_store_access: {
         Args: { _store_id: string; _user_id: string }

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import reconizeLogo from '@/assets/reconize-gestao-inteligente.jpg';
+import reconizeLogo from '@/assets/reconize-gestao-inteligente1.jpg';
 
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();

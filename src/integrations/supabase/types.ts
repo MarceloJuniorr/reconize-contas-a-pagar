@@ -1256,6 +1256,9 @@ export type Database = {
           email: string | null
           id: string
           name: string
+          pdv_auto_print: boolean | null
+          pdv_max_discount_percent: number | null
+          pdv_print_format: string | null
           phone: string | null
           updated_at: string | null
         }
@@ -1269,6 +1272,9 @@ export type Database = {
           email?: string | null
           id?: string
           name: string
+          pdv_auto_print?: boolean | null
+          pdv_max_discount_percent?: number | null
+          pdv_print_format?: string | null
           phone?: string | null
           updated_at?: string | null
         }
@@ -1282,6 +1288,9 @@ export type Database = {
           email?: string | null
           id?: string
           name?: string
+          pdv_auto_print?: boolean | null
+          pdv_max_discount_percent?: number | null
+          pdv_print_format?: string | null
           phone?: string | null
           updated_at?: string | null
         }
@@ -1459,6 +1468,10 @@ export type Database = {
       }
     }
     Functions: {
+      cancel_sale: {
+        Args: { p_reason: string; p_sale_id: string; p_user_id: string }
+        Returns: boolean
+      }
       cancel_stock_receipt: {
         Args: { p_header_id: string; p_reason: string; p_user_id: string }
         Returns: boolean

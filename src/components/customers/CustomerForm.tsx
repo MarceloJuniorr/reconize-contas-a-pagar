@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { DeliveryAddressesForm } from "./DeliveryAddressesForm";
 
 interface Customer {
   id: string;
@@ -298,9 +299,10 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
         </div>
       </div>
 
-      {/* Address */}
+      {/* Main Address */}
       <div className="border-t pt-4">
-        <h3 className="font-medium mb-4">Endereço</h3>
+        <h3 className="font-medium mb-4">Endereço Principal</h3>
+        
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <Label htmlFor="address_zip">CEP</Label>
@@ -382,6 +384,9 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
           </div>
         </div>
       </div>
+
+      {/* Delivery Addresses */}
+      <DeliveryAddressesForm customerId={customer?.id || null} />
 
       {/* Additional Info */}
       <div className="border-t pt-4">

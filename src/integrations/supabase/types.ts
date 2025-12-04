@@ -336,6 +336,71 @@ export type Database = {
           },
         ]
       }
+      customer_delivery_addresses: {
+        Row: {
+          active: boolean | null
+          address_city: string | null
+          address_complement: string | null
+          address_neighborhood: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string | null
+          customer_id: string
+          id: string
+          is_default: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          address_city?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          customer_id: string
+          id?: string
+          is_default?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          address_city?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          customer_id?: string
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_delivery_addresses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           active: boolean | null

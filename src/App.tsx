@@ -19,6 +19,8 @@ import Stock from "./pages/Stock";
 import StockReceiptsList from "./pages/StockReceiptsList";
 import StockReceipt from "./pages/StockReceipt";
 import Customers from "./pages/Customers";
+import PDV from "./pages/PDV";
+import PaymentMethods from "./pages/PaymentMethods";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +48,8 @@ const App = () => (
               <Route path="stock/receipt" element={<StockReceiptsList />} />
               <Route path="stock/receipt/new" element={<StockReceipt />} />
               <Route path="customers" element={<Customers />} />
+              <Route path="pdv" element={<PDV />} />
+              <Route path="payment-methods" element={<PaymentMethods />} />
               <Route path="users" element={
                 <ProtectedRoute requiredRole="admin">
                   <Users />

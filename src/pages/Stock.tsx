@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Warehouse, PackagePlus, Search, AlertTriangle } from 'lucide-react';
+import { Warehouse, PackagePlus, Search, AlertTriangle, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { MovementHistoryModal } from '@/components/stock/MovementHistoryModal';
 
 interface Store {
   id: string;
@@ -43,6 +44,9 @@ const Stock = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedProductName, setSelectedProductName] = useState('');
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -171,6 +175,12 @@ const Stock = () => {
     }).format(value);
   };
 
+  const handleViewHistory = (item: StockItem) => {
+    setSelectedProductId(item.product_id);
+    setSelectedProductName(`${item.products.internal_code} - ${item.products.name}`);
+    setHistoryModalOpen(true);
+  };
+
   if (!stores.length && !loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -241,6 +251,7 @@ const Stock = () => {
                     <TableHead className="text-right">Venda</TableHead>
                     <TableHead className="text-right">Markup</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -281,6 +292,16 @@ const Stock = () => {
                             <Badge variant="default">Normal</Badge>
                           )}
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewHistory(item)}
+                            title="Histórico de Movimentação"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -290,6 +311,14 @@ const Stock = () => {
           )}
         </CardContent>
       </Card>
+
+      <MovementHistoryModal
+        productId={selectedProductId}
+        storeId={selectedStoreId}
+        productName={selectedProductName}
+        open={historyModalOpen}
+        onOpenChange={setHistoryModalOpen}
+      />
     </div>
   );
 };

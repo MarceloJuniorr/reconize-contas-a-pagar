@@ -5,11 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PackagePlus, ArrowLeft, Plus, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { PackagePlus, ArrowLeft, Plus, Search, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ReceiptDetailModal } from '@/components/stock/ReceiptDetailModal';
 
 interface Store {
   id: string;
@@ -17,33 +19,28 @@ interface Store {
   code: string;
 }
 
-interface StockReceipt {
+interface ReceiptHeader {
   id: string;
-  quantity: number;
-  new_cost_price: number;
-  new_sale_price: number;
-  old_sale_price: number | null;
+  receipt_number: string;
+  invoice_number: string | null;
   notes: string | null;
+  status: string;
   received_at: string;
   received_by: string | null;
-  product: {
-    internal_code: string;
-    name: string;
-  };
-}
-
-interface Profile {
-  id: string;
-  full_name: string;
+  supplier: { name: string } | null;
+  items_count?: number;
+  total_value?: number;
 }
 
 const StockReceiptsList = () => {
   const [stores, setStores] = useState<Store[]>([]);
-  const [receipts, setReceipts] = useState<StockReceipt[]>([]);
+  const [receipts, setReceipts] = useState<ReceiptHeader[]>([]);
   const [profiles, setProfiles] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [storeId, setStoreId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -103,27 +100,49 @@ const StockReceiptsList = () => {
 
     try {
       setLoading(true);
-      const { data, error } = await (supabase as any)
-        .from('stock_receipts')
+      
+      // Fetch receipt headers
+      const { data: headersData, error: headersError } = await (supabase as any)
+        .from('stock_receipt_headers')
         .select(`
           id,
-          quantity,
-          new_cost_price,
-          new_sale_price,
-          old_sale_price,
+          receipt_number,
+          invoice_number,
           notes,
+          status,
           received_at,
           received_by,
-          product:products(internal_code, name)
+          supplier:suppliers(name)
         `)
         .eq('store_id', storeId)
         .order('received_at', { ascending: false });
 
-      if (error) throw error;
-      setReceipts(data || []);
+      if (headersError) throw headersError;
+
+      // For each header, count items and calculate total
+      const headersWithTotals = await Promise.all(
+        (headersData || []).map(async (header: ReceiptHeader) => {
+          const { data: items } = await (supabase as any)
+            .from('stock_receipts')
+            .select('quantity, new_cost_price')
+            .eq('header_id', header.id);
+
+          const itemsCount = items?.length || 0;
+          const totalValue = (items || []).reduce((sum: number, item: any) => 
+            sum + (item.quantity * item.new_cost_price), 0);
+
+          return {
+            ...header,
+            items_count: itemsCount,
+            total_value: totalValue,
+          };
+        })
+      );
+
+      setReceipts(headersWithTotals);
 
       // Fetch profiles for received_by users
-      const userIds = [...new Set((data || []).map((r: StockReceipt) => r.received_by).filter(Boolean))];
+      const userIds = [...new Set((headersData || []).map((r: ReceiptHeader) => r.received_by).filter(Boolean))];
       if (userIds.length > 0) {
         const { data: profilesData } = await (supabase as any)
           .from('profiles')
@@ -131,7 +150,7 @@ const StockReceiptsList = () => {
           .in('id', userIds);
 
         const profilesMap = new Map<string, string>();
-        (profilesData || []).forEach((p: Profile) => {
+        (profilesData || []).forEach((p: any) => {
           profilesMap.set(p.id, p.full_name);
         });
         setProfiles(profilesMap);
@@ -157,13 +176,17 @@ const StockReceiptsList = () => {
   const filteredReceipts = receipts.filter(r => {
     const search = searchTerm.toLowerCase();
     return (
-      r.product.name.toLowerCase().includes(search) ||
-      r.product.internal_code.toLowerCase().includes(search) ||
+      r.receipt_number.toLowerCase().includes(search) ||
+      (r.invoice_number && r.invoice_number.toLowerCase().includes(search)) ||
+      (r.supplier?.name && r.supplier.name.toLowerCase().includes(search)) ||
       (r.notes && r.notes.toLowerCase().includes(search))
     );
   });
 
-  const selectedStore = stores.find(s => s.id === storeId);
+  const handleViewReceipt = (receiptId: string) => {
+    setSelectedReceiptId(receiptId);
+    setDetailModalOpen(true);
+  };
 
   if (loading && stores.length === 0) {
     return <div className="text-center py-8">Carregando...</div>;
@@ -216,7 +239,7 @@ const StockReceiptsList = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por produto ou observação..."
+                placeholder="Buscar por número, nota fiscal ou fornecedor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -237,43 +260,54 @@ const StockReceiptsList = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Número</TableHead>
+                    <TableHead>Nota Fiscal</TableHead>
+                    <TableHead>Fornecedor</TableHead>
                     <TableHead>Data</TableHead>
-                    <TableHead>Produto</TableHead>
-                    <TableHead className="text-right">Qtd</TableHead>
-                    <TableHead className="text-right">Custo</TableHead>
-                    <TableHead className="text-right">Venda</TableHead>
+                    <TableHead className="text-right">Itens</TableHead>
+                    <TableHead className="text-right">Valor Total</TableHead>
                     <TableHead>Recebido por</TableHead>
-                    <TableHead>Observações</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredReceipts.map((receipt) => (
                     <TableRow key={receipt.id}>
+                      <TableCell className="font-mono font-medium">
+                        {receipt.receipt_number}
+                      </TableCell>
+                      <TableCell>
+                        {receipt.invoice_number || '-'}
+                      </TableCell>
+                      <TableCell>
+                        {receipt.supplier?.name || '-'}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap">
                         {formatDate(receipt.received_at)}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{receipt.product.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {receipt.product.internal_code}
-                          </span>
-                        </div>
+                      <TableCell className="text-right">
+                        {receipt.items_count}
                       </TableCell>
                       <TableCell className="text-right">
-                        {receipt.quantity.toLocaleString('pt-BR')}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(receipt.new_cost_price)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(receipt.new_sale_price)}
+                        {formatCurrency(receipt.total_value || 0)}
                       </TableCell>
                       <TableCell>
                         {receipt.received_by ? profiles.get(receipt.received_by) || '-' : '-'}
                       </TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {receipt.notes || '-'}
+                      <TableCell>
+                        <Badge variant={receipt.status === 'active' ? 'default' : 'destructive'}>
+                          {receipt.status === 'active' ? 'Ativo' : 'Cancelado'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewReceipt(receipt.id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -289,6 +323,13 @@ const StockReceiptsList = () => {
           )}
         </CardContent>
       </Card>
+
+      <ReceiptDetailModal
+        receiptId={selectedReceiptId}
+        open={detailModalOpen}
+        onOpenChange={setDetailModalOpen}
+        onCancelled={fetchReceipts}
+      />
     </div>
   );
 };

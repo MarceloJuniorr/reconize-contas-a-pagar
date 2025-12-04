@@ -57,6 +57,7 @@ const StockReceipt = () => {
 
   const [storeId, setStoreId] = useState('');
   const [supplierId, setSupplierId] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<ReceiptItem[]>([]);
 
@@ -212,10 +213,10 @@ const StockReceipt = () => {
   };
 
   const handleSubmit = async () => {
-    if (!storeId || !supplierId) {
+    if (!storeId) {
       toast({
         title: "Erro",
-        description: "Selecione a loja e o fornecedor",
+        description: "Selecione a loja",
         variant: "destructive",
       });
       return;
@@ -233,8 +234,31 @@ const StockReceipt = () => {
     try {
       setSubmitting(true);
 
-      // Inserir todos os itens
+      // Generate receipt number
+      const { data: receiptNumber, error: receiptNumberError } = await (supabase as any)
+        .rpc('generate_receipt_number', { p_store_id: storeId });
+
+      if (receiptNumberError) throw receiptNumberError;
+
+      // Create receipt header
+      const { data: headerData, error: headerError } = await (supabase as any)
+        .from('stock_receipt_headers')
+        .insert({
+          store_id: storeId,
+          supplier_id: supplierId || null,
+          receipt_number: receiptNumber,
+          invoice_number: invoiceNumber || null,
+          notes: notes || null,
+          received_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (headerError) throw headerError;
+
+      // Insert all items with header_id
       const receipts = items.map(item => ({
+        header_id: headerData.id,
         store_id: storeId,
         product_id: item.product.id,
         quantity: parseFloat(item.quantity.replace(',', '.')),
@@ -245,19 +269,16 @@ const StockReceipt = () => {
         received_by: user?.id,
       }));
 
-      const { error } = await (supabase as any).from('stock_receipts').insert(receipts);
+      const { error: itemsError } = await (supabase as any).from('stock_receipts').insert(receipts);
 
-      if (error) throw error;
+      if (itemsError) throw itemsError;
 
       toast({
         title: "Sucesso",
-        description: `${items.length} item(s) registrado(s) com sucesso`,
+        description: `Recebimento ${receiptNumber} registrado com ${items.length} item(s)`,
       });
 
       // Limpar e voltar
-      setItems([]);
-      setNotes('');
-      setSupplierId('');
       navigate(`/stock/receipt?store=${storeId}`);
     } catch (error: any) {
       console.error('Erro ao registrar recebimento:', error);
@@ -315,18 +336,17 @@ const StockReceipt = () => {
       <Card>
         <CardHeader className="flex flex-row items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/receipt?store=${storeId}`)}>
-
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <CardTitle className="flex items-center gap-2">
             <PackagePlus className="h-5 w-5" />
-            Recebimento de Mercadorias
+            Novo Recebimento de Mercadorias
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* Cabeçalho: Loja e Fornecedor */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Cabeçalho: Loja, Fornecedor e Nota Fiscal */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label>Loja *</Label>
                 <Select value={storeId} onValueChange={setStoreId}>
@@ -344,7 +364,7 @@ const StockReceipt = () => {
               </div>
 
               <div>
-                <Label>Fornecedor *</Label>
+                <Label>Fornecedor</Label>
                 <Popover open={supplierPopoverOpen} onOpenChange={setSupplierPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -355,7 +375,7 @@ const StockReceipt = () => {
                       {selectedSupplier ? (
                         <span>{selectedSupplier.name}</span>
                       ) : (
-                        <span className="text-muted-foreground">Selecione o fornecedor</span>
+                        <span className="text-muted-foreground">Selecione (opcional)</span>
                       )}
                       <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -393,6 +413,15 @@ const StockReceipt = () => {
                     </Command>
                   </PopoverContent>
                 </Popover>
+              </div>
+
+              <div>
+                <Label>Número da Nota Fiscal</Label>
+                <Input
+                  placeholder="Número da NF (opcional)"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                />
               </div>
             </div>
 
@@ -479,151 +508,148 @@ const StockReceipt = () => {
                     <div className="flex gap-2 items-center">
                       <Input
                         type="text"
+                        placeholder="0"
                         value={currentItem.quantity}
                         onChange={(e) => setCurrentItem({ ...currentItem, quantity: e.target.value })}
-                        placeholder="0"
                       />
-                      <span className="text-muted-foreground text-sm">
-                        {selectedProduct?.units?.abbreviation || 'UN'}
-                      </span>
+                      {selectedProduct && (
+                        <span className="text-sm text-muted-foreground">
+                          {selectedProduct.units?.abbreviation || 'UN'}
+                        </span>
+                      )}
                     </div>
+                  </div>
+
+                  {/* Preço de Custo */}
+                  <div>
+                    <Label>Preço de Custo *</Label>
+                    <Input
+                      type="text"
+                      placeholder="0,00"
+                      value={currentItem.new_cost_price}
+                      onChange={(e) => setCurrentItem({ ...currentItem, new_cost_price: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Preço de Venda */}
+                  <div>
+                    <Label>Preço de Venda *</Label>
+                    <Input
+                      type="text"
+                      placeholder="0,00"
+                      value={currentItem.new_sale_price}
+                      onChange={(e) => setCurrentItem({ ...currentItem, new_sale_price: e.target.value })}
+                    />
                   </div>
 
                   {/* Markup calculado */}
-                  <div className="flex items-end">
-                    <div className="p-3 bg-primary/10 rounded-lg w-full">
-                      <span className="text-xs text-muted-foreground">Markup:</span>
-                      <p className={`text-xl font-bold ${currentMarkup >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <div>
+                    <Label>Markup</Label>
+                    <div className="h-10 flex items-center px-3 bg-muted rounded-md">
+                      <span className={`font-medium ${currentMarkup > 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {currentMarkup.toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Preços */}
-                  <div>
-                    <Label>Preço de Custo *</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-                      <Input
-                        type="text"
-                        value={currentItem.new_cost_price}
-                        onChange={(e) => setCurrentItem({ ...currentItem, new_cost_price: e.target.value })}
-                        placeholder="0,00"
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Preço de Venda *</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-                      <Input
-                        type="text"
-                        value={currentItem.new_sale_price}
-                        onChange={(e) => setCurrentItem({ ...currentItem, new_sale_price: e.target.value })}
-                        placeholder="0,00"
-                        className="pl-10"
-                      />
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 <Button onClick={handleAddItem} className="w-full">
                   <Plus className="h-4 w-4 mr-2" />
-                  Adicionar à Lista
+                  Adicionar Item
                 </Button>
               </CardContent>
             </Card>
 
             {/* Lista de Itens */}
             {items.length > 0 && (
-              <Card>
-                <CardHeader className="py-4">
-                  <CardTitle className="text-base flex items-center justify-between">
-                    <span>Itens do Recebimento ({totalItems})</span>
-                    <span className="text-sm font-normal text-muted-foreground">
-                      Total: {formatCurrency(totalValue)}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Produto</TableHead>
-                          <TableHead className="text-right">Qtd</TableHead>
-                          <TableHead className="text-right">Custo</TableHead>
-                          <TableHead className="text-right">Venda</TableHead>
-                          <TableHead className="text-right">Markup</TableHead>
-                          <TableHead className="w-10"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {items.map((item) => {
-                          const markup = calculateMarkup(item.new_cost_price, item.new_sale_price);
-                          return (
-                            <TableRow key={item.id}>
-                              <TableCell>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{item.product.name}</span>
-                                  <span className="text-xs text-muted-foreground">{item.product.internal_code}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {item.quantity} {item.product.units?.abbreviation || 'UN'}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                R$ {item.new_cost_price}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                R$ {item.new_sale_price}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <span className={markup >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                  {markup.toFixed(1)}%
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleRemoveItem(item.id)}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+              <div>
+                <Label className="mb-2 block">Itens do Recebimento ({totalItems})</Label>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produto</TableHead>
+                        <TableHead className="text-right">Qtd</TableHead>
+                        <TableHead className="text-right">Custo Unit.</TableHead>
+                        <TableHead className="text-right">Venda Unit.</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((item) => {
+                        const qty = parseFloat(item.quantity.replace(',', '.')) || 0;
+                        const cost = parseFloat(item.new_cost_price.replace(',', '.')) || 0;
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{item.product.name}</span>
+                                <span className="text-xs text-muted-foreground">{item.product.internal_code}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {item.quantity} {item.product.units?.abbreviation || 'UN'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(cost)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(parseFloat(item.new_sale_price.replace(',', '.')) || 0)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(qty * cost)}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveItem(item.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                
+                {/* Totais */}
+                <div className="flex justify-end gap-6 mt-4 p-4 bg-muted rounded-lg">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Total de Itens:</span>
+                    <span className="font-medium ml-2">{totalItems}</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Valor Total:</span>
+                    <span className="font-medium ml-2">{formatCurrency(totalValue)}</span>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Observações */}
             <div>
               <Label>Observações Gerais</Label>
               <Textarea
+                placeholder="Observações sobre o recebimento..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observações sobre o recebimento..."
               />
             </div>
 
-            {/* Botões */}
-            <div className="flex gap-4">
-              <Button variant="outline" onClick={() => navigate('/stock')} className="flex-1">
-                Cancelar
-              </Button>
-              <Button onClick={handleSubmit} disabled={submitting || items.length === 0} className="flex-1">
-                <Save className="h-4 w-4 mr-2" />
-                {submitting ? 'Salvando...' : `Finalizar Recebimento (${totalItems} itens)`}
-              </Button>
-            </div>
+            {/* Botão de Salvar */}
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting || items.length === 0}
+              className="w-full"
+              size="lg"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {submitting ? 'Salvando...' : 'Finalizar Recebimento'}
+            </Button>
           </div>
         </CardContent>
       </Card>

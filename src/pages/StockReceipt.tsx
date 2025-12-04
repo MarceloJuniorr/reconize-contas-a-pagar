@@ -355,13 +355,13 @@ const StockReceipt = () => {
                         value={supplierSearch}
                         onValueChange={setSupplierSearch}
                       />
-                      <CommandList>
+                      <CommandList className="max-h-[300px]">
                         <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
                         <CommandGroup>
-                          {filteredSuppliers.slice(0, 50).map((supplier) => (
+                          {filteredSuppliers.map((supplier) => (
                             <CommandItem
                               key={supplier.id}
-                              value={supplier.id}
+                              value={`${supplier.name} ${supplier.document || ''}`}
                               onSelect={() => {
                                 setSupplierId(supplier.id);
                                 setSupplierPopoverOpen(false);

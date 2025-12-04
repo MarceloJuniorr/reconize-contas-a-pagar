@@ -18,6 +18,7 @@ import Products from "./pages/Products";
 import Stock from "./pages/Stock";
 import StockReceiptsList from "./pages/StockReceiptsList";
 import StockReceipt from "./pages/StockReceipt";
+import Customers from "./pages/Customers";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="stock" element={<Stock />} />
               <Route path="stock/receipt" element={<StockReceiptsList />} />
               <Route path="stock/receipt/new" element={<StockReceipt />} />
+              <Route path="customers" element={<Customers />} />
               <Route path="users" element={
                 <ProtectedRoute requiredRole="admin">
                   <Users />

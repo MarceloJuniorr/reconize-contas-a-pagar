@@ -280,14 +280,14 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
         <div>
           <Label htmlFor="responsible_user_id">Usuário Responsável</Label>
           <Select
-            value={formData.responsible_user_id}
-            onValueChange={(value) => handleChange("responsible_user_id", value)}
+            value={formData.responsible_user_id || "none"}
+            onValueChange={(value) => handleChange("responsible_user_id", value === "none" ? "" : value)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Selecione um responsável" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhum</SelectItem>
+              <SelectItem value="none">Nenhum</SelectItem>
               {users.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.full_name}

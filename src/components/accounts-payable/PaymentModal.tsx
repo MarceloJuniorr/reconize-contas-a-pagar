@@ -37,7 +37,10 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
     resolver: zodResolver(paymentSchema),
     defaultValues: {
       payment_date: new Date().toISOString().split('T')[0],
-      amount_paid: account?.amount?.toString() || '',
+      amount_paid: account?.amount ? new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(account.amount) : '',
       notes: '',
     },
   });
@@ -98,7 +101,7 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
         });
         return;
       }
-      
+
       if (file.size > 10 * 1024 * 1024) {
         toast({
           title: "Erro",
@@ -107,7 +110,7 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
         });
         return;
       }
-      
+
       setAttachment(file);
     }
   };
@@ -133,13 +136,13 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
       // Upload attachment if provided
       if (attachment) {
         const fileName = `payments/${account.id}/${Date.now()}-${attachment.name}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from('attachments')
           .upload(fileName, attachment);
 
         if (uploadError) throw uploadError;
-        
+
         // Save attachment record in attachments table
         const { error: attachmentError } = await supabase
           .from('attachments')
@@ -158,7 +161,7 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
         if (attachmentError) {
           console.error('Erro ao salvar registro do anexo:', attachmentError);
         }
-        
+
         attachmentUrl = fileName;
       }
 
@@ -242,7 +245,7 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
                 <div className="col-span-2">
                   <span className="font-medium">Método de Pagamento:</span> {getPaymentMethodLabel(getPaymentMethodFromAccount())}
                 </div>
-                
+
                 {/* Dados para cópia - Boleto */}
                 {account.payment_type === 'boleto' && account.boleto_barcode && (
                   <div className="col-span-2">
@@ -320,13 +323,11 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
                       <FormItem>
                         <FormLabel>Valor Pago *</FormLabel>
                         <FormControl>
-                          <Input 
+                          <Input
                             {...field}
                             placeholder="0,00"
-                            onChange={(e) => {
-                              const formatted = formatCurrency(e.target.value);
-                              field.onChange(formatted);
-                            }}
+                            disabled
+                            className="bg-gray-100 cursor-not-allowed"
                           />
                         </FormControl>
                         <FormMessage />

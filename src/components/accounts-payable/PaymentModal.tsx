@@ -1,4 +1,5 @@
-import { useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,6 +45,22 @@ export const PaymentModal = ({ account, open, onClose, onSuccess }: PaymentModal
       notes: '',
     },
   });
+
+  // Atualiza o formulário quando a conta mudar ou o modal abrir
+  useEffect(() => {
+    if (open && account) {
+      form.reset({
+        payment_date: new Date().toISOString().split('T')[0],
+        amount_paid: new Intl.NumberFormat('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(account.amount),
+        notes: '',
+      });
+      setAttachment(null);
+      setCopiedText(null);
+    }
+  }, [open, account, form]);
 
   // Função para copiar texto
   const copyToClipboard = async (text: string, label: string) => {

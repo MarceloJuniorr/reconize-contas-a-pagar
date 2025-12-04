@@ -416,13 +416,13 @@ const StockReceipt = () => {
                             value={productSearch}
                             onValueChange={setProductSearch}
                           />
-                          <CommandList>
+                          <CommandList className="max-h-[300px]">
                             <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                             <CommandGroup>
-                              {filteredProducts.slice(0, 50).map((product) => (
+                              {filteredProducts.map((product) => (
                                 <CommandItem
                                   key={product.id}
-                                  value={product.id}
+                                  value={`${product.name} ${product.internal_code} ${product.ean || ''}`}
                                   onSelect={() => {
                                     setCurrentItem({ ...currentItem, product_id: product.id });
                                     setProductPopoverOpen(false);

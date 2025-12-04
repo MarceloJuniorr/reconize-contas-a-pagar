@@ -24,7 +24,7 @@ const Auth = () => {
     const mode = searchParams.get('mode');
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
-    
+
     if (mode === 'reset') {
       if (error === 'access_denied' && errorDescription?.includes('expired')) {
         toast({
@@ -98,7 +98,7 @@ const Auth = () => {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (resetForm.password !== resetForm.confirmPassword) {
       toast({
         title: "Erro",
@@ -151,19 +151,14 @@ const Auth = () => {
             </>
           ) : (
             <div className="flex justify-center">
-              <img 
-                src={reconizeLogo} 
-                alt="Reconize - Gestão Inteligente" 
-                className="h-24 w-auto object-contain"
+              <img
+                src={reconizeLogo}
+                alt="Reconize - Gestão Inteligente"
+                className="w-auto object-contain"
               />
             </div>
           )}
-          {!isResetMode && (
-            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md text-sm text-blue-800 dark:text-blue-200">
-              <p className="font-medium">⚠️ Atenção:</p>
-              <p>Após o cadastro, sua conta precisa ser ativada por um administrador para ter acesso ao sistema.</p>
-            </div>
-          )}
+
         </CardHeader>
         <CardContent>
           {isResetMode ? (
@@ -195,10 +190,10 @@ const Auth = () => {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Redefinindo...' : 'Redefinir Senha'}
               </Button>
-              <Button 
-                type="button" 
-                variant="ghost" 
-                className="w-full" 
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
                 onClick={() => setIsResetMode(false)}
               >
                 Voltar ao login
@@ -210,7 +205,7 @@ const Auth = () => {
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Cadastro</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
@@ -238,10 +233,10 @@ const Auth = () => {
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Entrando...' : 'Entrar'}
                   </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    className="w-full mt-2" 
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full mt-2"
                     onClick={handleForgotPassword}
                     disabled={isLoading}
                   >
@@ -249,8 +244,14 @@ const Auth = () => {
                   </Button>
                 </form>
               </TabsContent>
-              
+
               <TabsContent value="signup">
+                {!isResetMode && (
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md text-sm text-blue-800 dark:text-blue-200">
+                    <p className="font-medium">⚠️ Atenção:</p>
+                    <p>Após o cadastro, sua conta precisa ser ativada por um administrador para ter acesso ao sistema.</p>
+                  </div>
+                )}
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Nome completo</Label>

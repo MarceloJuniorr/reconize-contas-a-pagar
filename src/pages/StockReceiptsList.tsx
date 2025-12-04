@@ -25,18 +25,22 @@ interface StockReceipt {
   old_sale_price: number | null;
   notes: string | null;
   received_at: string;
+  received_by: string | null;
   product: {
     internal_code: string;
     name: string;
   };
-  received_by_profile: {
-    full_name: string;
-  } | null;
+}
+
+interface Profile {
+  id: string;
+  full_name: string;
 }
 
 const StockReceiptsList = () => {
   const [stores, setStores] = useState<Store[]>([]);
   const [receipts, setReceipts] = useState<StockReceipt[]>([]);
+  const [profiles, setProfiles] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [storeId, setStoreId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -109,14 +113,29 @@ const StockReceiptsList = () => {
           old_sale_price,
           notes,
           received_at,
-          product:products(internal_code, name),
-          received_by_profile:profiles!stock_receipts_received_by_fkey(full_name)
+          received_by,
+          product:products(internal_code, name)
         `)
         .eq('store_id', storeId)
         .order('received_at', { ascending: false });
 
       if (error) throw error;
       setReceipts(data || []);
+
+      // Fetch profiles for received_by users
+      const userIds = [...new Set((data || []).map((r: StockReceipt) => r.received_by).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profilesData } = await (supabase as any)
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+
+        const profilesMap = new Map<string, string>();
+        (profilesData || []).forEach((p: Profile) => {
+          profilesMap.set(p.id, p.full_name);
+        });
+        setProfiles(profilesMap);
+      }
     } catch (error) {
       console.error('Erro ao buscar recebimentos:', error);
     } finally {
@@ -251,7 +270,7 @@ const StockReceiptsList = () => {
                         {formatCurrency(receipt.new_sale_price)}
                       </TableCell>
                       <TableCell>
-                        {receipt.received_by_profile?.full_name || '-'}
+                        {receipt.received_by ? profiles.get(receipt.received_by) || '-' : '-'}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
                         {receipt.notes || '-'}

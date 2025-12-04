@@ -590,8 +590,153 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          movement_type: string
+          notes: string | null
+          product_id: string
+          quantity: number
+          reference_id: string | null
+          reference_type: string
+          store_id: string
+          unit_cost: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type: string
+          notes?: string | null
+          product_id: string
+          quantity: number
+          reference_id?: string | null
+          reference_type: string
+          store_id: string
+          unit_cost?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          product_id?: string
+          quantity?: number
+          reference_id?: string | null
+          reference_type?: string
+          store_id?: string
+          unit_cost?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_receipt_headers: {
+        Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          id: string
+          invoice_number: string | null
+          notes: string | null
+          receipt_number: string
+          received_at: string
+          received_by: string | null
+          status: string
+          store_id: string
+          supplier_id: string | null
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          receipt_number: string
+          received_at?: string
+          received_by?: string | null
+          status?: string
+          store_id: string
+          supplier_id?: string | null
+        }
+        Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          receipt_number?: string
+          received_at?: string
+          received_by?: string | null
+          status?: string
+          store_id?: string
+          supplier_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_receipt_headers_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipt_headers_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipt_headers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipt_headers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_receipts: {
         Row: {
+          header_id: string | null
           id: string
           markup: number | null
           new_cost_price: number
@@ -605,6 +750,7 @@ export type Database = {
           store_id: string
         }
         Insert: {
+          header_id?: string | null
           id?: string
           markup?: number | null
           new_cost_price: number
@@ -618,6 +764,7 @@ export type Database = {
           store_id: string
         }
         Update: {
+          header_id?: string | null
           id?: string
           markup?: number | null
           new_cost_price?: number
@@ -631,6 +778,13 @@ export type Database = {
           store_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_receipts_header_id_fkey"
+            columns: ["header_id"]
+            isOneToOne: false
+            referencedRelation: "stock_receipt_headers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_receipts_product_id_fkey"
             columns: ["product_id"]
@@ -861,6 +1015,11 @@ export type Database = {
       }
     }
     Functions: {
+      cancel_stock_receipt: {
+        Args: { p_header_id: string; p_reason: string; p_user_id: string }
+        Returns: boolean
+      }
+      generate_receipt_number: { Args: { p_store_id: string }; Returns: string }
       get_account_attachments: {
         Args: { p_account_id: string }
         Returns: {

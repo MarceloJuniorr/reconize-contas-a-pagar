@@ -1,17 +1,45 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, FileText, Building2, MapPin, LogOut, Users, Menu } from 'lucide-react';
+import { LayoutDashboard, FileText, Building2, MapPin, LogOut, Users, Menu, Store, Package, Warehouse } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import reconizeLogo from '@/assets/reconize-gestao-inteligente1.jpg';
+import { supabase } from '@/integrations/supabase/client';
 
 const Layout = () => {
-  const { signOut, hasRole } = useAuth();
+  const { signOut, hasRole, user } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hasStoreAccess, setHasStoreAccess] = useState(false);
+
+  useEffect(() => {
+    checkStoreAccess();
+  }, [user]);
+
+  const checkStoreAccess = async () => {
+    if (!user) {
+      setHasStoreAccess(false);
+      return;
+    }
+
+    // Admin e operador sempre têm acesso
+    if (hasRole('admin') || hasRole('operador')) {
+      setHasStoreAccess(true);
+      return;
+    }
+
+    // Verificar se usuário tem lojas vinculadas
+    const { data } = await supabase
+      .from('user_stores')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    setHasStoreAccess(data && data.length > 0);
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -23,6 +51,16 @@ const Layout = () => {
     { name: 'Fornecedores', href: '/suppliers', icon: Building2 },
     { name: 'Centros de Custo', href: '/cost-centers', icon: MapPin },
   ];
+
+  // Menus de Lojas, Produtos e Estoque (apenas para quem tem acesso)
+  if (hasRole('admin') || hasRole('operador')) {
+    navigation.push({ name: 'Lojas', href: '/stores', icon: Store });
+  }
+
+  if (hasStoreAccess) {
+    navigation.push({ name: 'Produtos', href: '/products', icon: Package });
+    navigation.push({ name: 'Estoque', href: '/stock', icon: Warehouse });
+  }
 
   if (hasRole('admin')) {
     navigation.push({

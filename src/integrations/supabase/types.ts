@@ -336,6 +336,86 @@ export type Database = {
           },
         ]
       }
+      customers: {
+        Row: {
+          active: boolean | null
+          address_city: string | null
+          address_complement: string | null
+          address_neighborhood: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          created_at: string | null
+          created_by: string | null
+          credit_limit: number | null
+          document: string | null
+          document_type: string | null
+          email: string | null
+          id: string
+          name: string
+          observations: string | null
+          phone: string | null
+          phone_secondary: string | null
+          responsible_user_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          address_city?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          credit_limit?: number | null
+          document?: string | null
+          document_type?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          observations?: string | null
+          phone?: string | null
+          phone_secondary?: string | null
+          responsible_user_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          address_city?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          credit_limit?: number | null
+          document?: string | null
+          document_type?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          observations?: string | null
+          phone?: string | null
+          phone_secondary?: string | null
+          responsible_user_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_responsible_user_id_fkey"
+            columns: ["responsible_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           account_id: string | null

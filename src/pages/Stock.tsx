@@ -62,7 +62,7 @@ const Stock = () => {
 
     try {
       // Buscar lojas que o usuário tem acesso
-      const { data: userStores, error: userStoresError } = await supabase
+      const { data: userStores, error: userStoresError } = await (supabase as any)
         .from('user_stores')
         .select('store_id')
         .eq('user_id', user.id);
@@ -71,10 +71,10 @@ const Stock = () => {
 
       // Se usuário tem lojas vinculadas, buscar detalhes delas
       // Se não tem (e é admin/operador), buscar todas
-      let storesQuery = supabase.from('stores').select('id, name, code').eq('active', true);
+      let storesQuery = (supabase as any).from('stores').select('id, name, code').eq('active', true);
       
       if (userStores && userStores.length > 0) {
-        const storeIds = userStores.map(us => us.store_id);
+        const storeIds = userStores.map((us: any) => us.store_id);
         storesQuery = storesQuery.in('id', storeIds);
       }
 
@@ -101,7 +101,7 @@ const Stock = () => {
       setLoading(true);
       
       // Buscar estoque
-      const { data: stockData, error: stockError } = await supabase
+      const { data: stockData, error: stockError } = await (supabase as any)
         .from('product_stock')
         .select(`
           *,
@@ -119,8 +119,8 @@ const Stock = () => {
 
       // Buscar preços atuais para cada produto
       const stockWithPricing = await Promise.all(
-        (stockData || []).map(async (item) => {
-          const { data: pricing } = await supabase
+        (stockData || []).map(async (item: any) => {
+          const { data: pricing } = await (supabase as any)
             .from('product_pricing')
             .select('cost_price, sale_price, markup')
             .eq('product_id', item.product_id)

@@ -46,7 +46,7 @@ const Stores = () => {
   const fetchStores = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('stores')
         .select('*')
         .order('name');
@@ -102,7 +102,7 @@ const Stores = () => {
 
     try {
       if (editingStore) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('stores')
           .update({
             name: formData.name,
@@ -117,7 +117,7 @@ const Stores = () => {
         if (error) throw error;
         toast({ title: "Sucesso", description: "Loja atualizada com sucesso" });
       } else {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('stores')
           .insert({
             name: formData.name,
@@ -149,7 +149,7 @@ const Stores = () => {
     if (!confirm('Tem certeza que deseja excluir esta loja?')) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('stores')
         .delete()
         .eq('id', id);

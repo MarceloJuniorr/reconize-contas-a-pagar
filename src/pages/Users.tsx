@@ -5,10 +5,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, UserCog, Shield, Eye, FileText, CreditCard } from 'lucide-react';
+import { Users, UserCog, Shield, Eye, CreditCard, Store } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { Checkbox } from '@/components/ui/checkbox';
+
+interface StoreType {
+  id: string;
+  name: string;
+  code: string;
+}
 
 interface User {
   id: string;
@@ -16,20 +23,25 @@ interface User {
   full_name: string;
   created_at: string;
   roles: string[];
+  stores: string[];
 }
 
 const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
+  const [stores, setStores] = useState<StoreType[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [isStoreDialogOpen, setIsStoreDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedStores, setSelectedStores] = useState<string[]>([]);
   const { toast } = useToast();
   const { hasRole, user: currentUser } = useAuth();
 
   useEffect(() => {
     if (hasRole('admin')) {
       fetchUsers();
+      fetchStores();
     }
   }, [hasRole]);
 
@@ -45,22 +57,28 @@ const UserManagement = () => {
 
       if (profilesError) throw profilesError;
 
-      // Buscar papéis de cada usuário
-      const usersWithRoles = await Promise.all(
+      // Buscar papéis e lojas de cada usuário
+      const usersWithData = await Promise.all(
         profiles.map(async (profile) => {
           const { data: userRoles } = await supabase
             .from('user_roles')
             .select('role')
             .eq('user_id', profile.id);
 
+          const { data: userStores } = await supabase
+            .from('user_stores')
+            .select('store_id')
+            .eq('user_id', profile.id);
+
           return {
             ...profile,
-            roles: userRoles?.map(r => r.role) || []
+            roles: userRoles?.map(r => r.role) || [],
+            stores: userStores?.map(s => s.store_id) || []
           };
         })
       );
 
-      setUsers(usersWithRoles);
+      setUsers(usersWithData);
     } catch (error) {
       console.error('Erro ao buscar usuários:', error);
       toast({
@@ -73,10 +91,74 @@ const UserManagement = () => {
     }
   };
 
+  const fetchStores = async () => {
+    const { data } = await supabase
+      .from('stores')
+      .select('id, name, code')
+      .eq('active', true)
+      .order('name');
+    setStores(data || []);
+  };
+
   const handleManageRoles = (user: User) => {
     setSelectedUser(user);
     setSelectedRole('');
     setIsRoleDialogOpen(true);
+  };
+
+  const handleManageStores = (user: User) => {
+    setSelectedUser(user);
+    setSelectedStores(user.stores);
+    setIsStoreDialogOpen(true);
+  };
+
+  const handleSaveStores = async () => {
+    if (!selectedUser) return;
+
+    try {
+      // Remover todas as lojas atuais
+      await supabase
+        .from('user_stores')
+        .delete()
+        .eq('user_id', selectedUser.id);
+
+      // Adicionar novas lojas selecionadas
+      if (selectedStores.length > 0) {
+        const inserts = selectedStores.map(store_id => ({
+          user_id: selectedUser.id,
+          store_id
+        }));
+
+        const { error } = await supabase
+          .from('user_stores')
+          .insert(inserts);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Lojas atualizadas com sucesso",
+      });
+
+      setIsStoreDialogOpen(false);
+      fetchUsers();
+    } catch (error) {
+      console.error('Erro ao atualizar lojas:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar lojas",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleStore = (storeId: string) => {
+    setSelectedStores(prev => 
+      prev.includes(storeId) 
+        ? prev.filter(id => id !== storeId)
+        : [...prev, storeId]
+    );
   };
 
   const handleAddRole = async () => {
@@ -296,6 +378,7 @@ const UserManagement = () => {
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Papéis</TableHead>
+                  <TableHead>Lojas</TableHead>
                   <TableHead>Cadastrado em</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
@@ -314,7 +397,6 @@ const UserManagement = () => {
                           >
                             {getRoleIcon(role)}
                             {getRoleLabel(role)}
-                            {/* Não mostrar botão de remover se for o próprio admin tentando remover seu papel */}
                             {!(user.id === currentUser?.id && role === 'admin') && (
                               <button
                                 onClick={() => handleRemoveRole(user.id, role)}
@@ -328,16 +410,42 @@ const UserManagement = () => {
                         ))}
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {user.stores.length > 0 ? (
+                          user.stores.map((storeId) => {
+                            const store = stores.find(s => s.id === storeId);
+                            return store ? (
+                              <Badge key={storeId} variant="outline" className="text-xs">
+                                {store.code}
+                              </Badge>
+                            ) : null;
+                          })
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Nenhuma</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{formatDate(user.created_at)}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleManageRoles(user)}
-                      >
-                        <UserCog className="h-4 w-4 mr-1" />
-                        Gerenciar Papéis
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleManageRoles(user)}
+                        >
+                          <UserCog className="h-4 w-4 mr-1" />
+                          Papéis
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleManageStores(user)}
+                        >
+                          <Store className="h-4 w-4 mr-1" />
+                          Lojas
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -408,6 +516,49 @@ const UserManagement = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para Gerenciar Lojas */}
+      <Dialog open={isStoreDialogOpen} onOpenChange={setIsStoreDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gerenciar Lojas - {selectedUser?.full_name}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Selecione as lojas que este usuário pode gerenciar. Usuários sem lojas vinculadas não terão acesso aos menus de Produtos e Estoque.
+            </p>
+            
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {stores.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma loja cadastrada.</p>
+              ) : (
+                stores.map((store) => (
+                  <div key={store.id} className="flex items-center space-x-2 p-2 border rounded">
+                    <Checkbox
+                      id={store.id}
+                      checked={selectedStores.includes(store.id)}
+                      onCheckedChange={() => toggleStore(store.id)}
+                    />
+                    <label htmlFor={store.id} className="text-sm cursor-pointer flex-1">
+                      <span className="font-mono">{store.code}</span> - {store.name}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsStoreDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveStores}>
+                Salvar
+              </Button>
             </div>
           </div>
         </DialogContent>

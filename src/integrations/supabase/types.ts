@@ -238,6 +238,63 @@ export type Database = {
           },
         ]
       }
+      brands: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       cost_centers: {
         Row: {
           active: boolean | null
@@ -337,6 +394,178 @@ export type Database = {
           },
         ]
       }
+      product_pricing: {
+        Row: {
+          cost_price: number
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_current: boolean | null
+          markup: number | null
+          product_id: string
+          sale_price: number
+          store_id: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          cost_price?: number
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_current?: boolean | null
+          markup?: number | null
+          product_id: string
+          sale_price?: number
+          store_id: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          cost_price?: number
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_current?: boolean | null
+          markup?: number | null
+          product_id?: string
+          sale_price?: number
+          store_id?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_pricing_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_pricing_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_stock: {
+        Row: {
+          id: string
+          max_quantity: number | null
+          min_quantity: number | null
+          product_id: string
+          quantity: number
+          store_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          max_quantity?: number | null
+          min_quantity?: number | null
+          product_id: string
+          quantity?: number
+          store_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          max_quantity?: number | null
+          min_quantity?: number | null
+          product_id?: string
+          quantity?: number
+          store_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_stock_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_stock_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          active: boolean | null
+          brand_id: string | null
+          category_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          ean: string | null
+          id: string
+          image_url: string | null
+          internal_code: string
+          name: string
+          unit_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          brand_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          ean?: string | null
+          id?: string
+          image_url?: string | null
+          internal_code: string
+          name: string
+          unit_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          brand_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          ean?: string | null
+          id?: string
+          image_url?: string | null
+          internal_code?: string
+          name?: string
+          unit_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -357,6 +586,105 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      stock_receipts: {
+        Row: {
+          id: string
+          markup: number | null
+          new_cost_price: number
+          new_sale_price: number
+          notes: string | null
+          old_sale_price: number | null
+          product_id: string
+          quantity: number
+          received_at: string | null
+          received_by: string | null
+          store_id: string
+        }
+        Insert: {
+          id?: string
+          markup?: number | null
+          new_cost_price: number
+          new_sale_price: number
+          notes?: string | null
+          old_sale_price?: number | null
+          product_id: string
+          quantity: number
+          received_at?: string | null
+          received_by?: string | null
+          store_id: string
+        }
+        Update: {
+          id?: string
+          markup?: number | null
+          new_cost_price?: number
+          new_sale_price?: number
+          notes?: string | null
+          old_sale_price?: number | null
+          product_id?: string
+          quantity?: number
+          received_at?: string | null
+          received_by?: string | null
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_receipts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stores: {
+        Row: {
+          active: boolean | null
+          address: string | null
+          cnpj: string | null
+          code: string
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          address?: string | null
+          cnpj?: string | null
+          code: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          address?: string | null
+          cnpj?: string | null
+          code?: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -435,6 +763,36 @@ export type Database = {
           },
         ]
       }
+      units: {
+        Row: {
+          abbreviation: string
+          active: boolean | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          abbreviation: string
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          abbreviation?: string
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -455,6 +813,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_stores: {
+        Row: {
+          created_at: string | null
+          id: string
+          store_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          store_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          store_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_stores_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -503,6 +890,11 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      user_has_any_store: { Args: { _user_id: string }; Returns: boolean }
+      user_has_store_access: {
+        Args: { _store_id: string; _user_id: string }
         Returns: boolean
       }
     }

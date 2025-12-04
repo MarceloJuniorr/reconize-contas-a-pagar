@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,10 +72,21 @@ const StockReceipt = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     fetchInitialData();
   }, [user]);
+
+  useEffect(() => {
+    const storeParam = searchParams.get('store');
+    if (storeParam && stores.length > 0) {
+      const storeExists = stores.some(s => s.id === storeParam);
+      if (storeExists) {
+        setStoreId(storeParam);
+      }
+    }
+  }, [searchParams, stores]);
 
   useEffect(() => {
     if (storeId && currentItem.product_id) {
@@ -247,7 +258,7 @@ const StockReceipt = () => {
       setItems([]);
       setNotes('');
       setSupplierId('');
-      navigate('/stock');
+      navigate(`/stock/receipt?store=${storeId}`);
     } catch (error: any) {
       console.error('Erro ao registrar recebimento:', error);
       toast({
@@ -303,7 +314,8 @@ const StockReceipt = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/stock')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/receipt?store=${storeId}`)}>
+
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <CardTitle className="flex items-center gap-2">

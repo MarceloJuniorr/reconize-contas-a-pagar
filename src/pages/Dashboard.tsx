@@ -3,10 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  DollarSign, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  DollarSign,
+  AlertTriangle,
+  CheckCircle,
   Calendar,
   Plus,
   FileText,
@@ -116,7 +116,7 @@ const Dashboard = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+            <h1 className="text-3xl font-bold text-foreground ">Dashboard</h1>
             <p className="text-muted-foreground mt-1">
               Bem-vindo, {profile?.full_name}
             </p>

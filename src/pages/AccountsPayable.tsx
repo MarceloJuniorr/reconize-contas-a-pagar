@@ -272,7 +272,7 @@ const AccountsPayable = () => {
   return (
     <div className="w-full overflow-x-hidden">
       <div className="container mx-auto px-0 space-y-6 max-w-full">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pl-2">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Contas a Pagar</h1>
             <p className="text-muted-foreground">
@@ -380,7 +380,7 @@ const AccountsPayable = () => {
               <CardTitle className="text-sm font-medium">Total em Aberto</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
+            <CardContent className='pl-6'>
               <div className="text-2xl font-bold">{formatCurrency(stats.totalOpen)}</div>
               <p className="text-xs text-muted-foreground">
                 Contas pendentes de pagamento
@@ -396,7 +396,7 @@ const AccountsPayable = () => {
               <CardTitle className="text-sm font-medium">Vencidas</CardTitle>
               <AlertTriangle className="h-4 w-4 text-destructive" />
             </CardHeader>
-            <CardContent>
+            <CardContent className='pl-6'>
               <div className="text-2xl font-bold text-destructive">{formatCurrency(stats.totalOverdue)}</div>
               <p className="text-xs text-muted-foreground">
                 Contas em atraso
@@ -412,7 +412,7 @@ const AccountsPayable = () => {
               <CardTitle className="text-sm font-medium">Vencendo Hoje</CardTitle>
               <Calendar className="h-4 w-4 text-orange-500" />
             </CardHeader>
-            <CardContent>
+            <CardContent className='pl-6'>
               <div className="text-2xl font-bold text-orange-500">{formatCurrency(stats.dueToday)}</div>
               <p className="text-xs text-muted-foreground">
                 Contas que vencem hoje
@@ -428,7 +428,7 @@ const AccountsPayable = () => {
               <CardTitle className="text-sm font-medium">Vence Amanhã</CardTitle>
               <Calendar className="h-4 w-4 text-yellow-500" />
             </CardHeader>
-            <CardContent>
+            <CardContent className='pl-6'>
               <div className="text-2xl font-bold text-yellow-500">{formatCurrency(stats.dueTomorrow)}</div>
               <p className="text-xs text-muted-foreground">
                 Contas que vencem amanhã
@@ -444,7 +444,7 @@ const AccountsPayable = () => {
               <CardTitle className="text-sm font-medium">Próxima Semana</CardTitle>
               <Calendar className="h-4 w-4 text-blue-500" />
             </CardHeader>
-            <CardContent>
+            <CardContent className='pl-6'>
               <div className="text-2xl font-bold text-blue-500">{formatCurrency(stats.dueNextWeek)}</div>
               <p className="text-xs text-muted-foreground">
                 Vencendo em 7 dias
@@ -460,7 +460,7 @@ const AccountsPayable = () => {
               <CardTitle className="text-sm font-medium">Pago Hoje</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
-            <CardContent>
+            <CardContent className='pl-6'>
               <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.paidToday)}</div>
               <p className="text-xs text-muted-foreground">
                 Total pago hoje
@@ -476,7 +476,7 @@ const AccountsPayable = () => {
               <CardTitle className="text-sm font-medium">Pagos 30 Dias</CardTitle>
               <CheckCircle className="h-4 w-4 text-emerald-500" />
             </CardHeader>
-            <CardContent>
+            <CardContent className='pl-6'>
               <div className="text-2xl font-bold text-emerald-500">{formatCurrency(stats.paidLast30Days)}</div>
               <p className="text-xs text-muted-foreground">
                 Últimos 30 dias pagos

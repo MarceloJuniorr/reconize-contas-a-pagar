@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Edit, Eye, CheckCircle, X, Download, History, Filter, CalendarIcon, Paperclip, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Edit, Eye, CheckCircle, X, Download, History, Filter, CalendarIcon, Paperclip, ArrowUpDown, ArrowUp, ArrowDown, MoreVertical } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,7 @@ import { AttachmentsModal } from './AttachmentsModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 interface Attachment {
   id: string;
@@ -159,6 +161,18 @@ const getPaymentTypeLabel = (type: string) => {
   }
 };
 
+// Adicione esta configuração logo após as interfaces
+const COLUMN_WIDTHS = {
+  description: 'w-[250px]', // Largura automática com mínimo
+  supplier: 'w-[250px]',
+  cost_center: 'w-[150px]', // Largura fixa
+  payment_type: 'w-[90px]', // Largura fixa
+  amount: 'w-[130px]', // Largura fixa
+  due_date: 'w-[100px]', // Largura fixa
+  status: 'w-[80px]', // Largura fixa
+  actions: 'w-[80px]', // Largura fixa
+} as const;
+
 export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }: AccountsListProps) => {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -166,7 +180,6 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   const [openCardActions, setOpenCardActions] = useState<string | null>(null);
   const [mobileShowFilters, setMobileShowFilters] = useState(false);
   const [mobileFilterStatus, setMobileFilterStatus] = useState('all');
@@ -376,6 +389,44 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
     });
 
     return stats;
+  }, [filteredAccounts]);
+
+  // Calculate overall totals from filtered accounts
+  const filteredTotals = useMemo(() => {
+    const totals = {
+      totalContas: filteredAccounts.length,
+      totalPago: 0,
+      totalEmAberto: 0,
+      totalVencidas: 0,
+      contasPagas: 0,
+      contasEmAberto: 0,
+      contasVencidas: 0,
+    };
+
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+
+    filteredAccounts.forEach(account => {
+      const amount = Number(account.amount);
+
+      if (account.status === 'pago') {
+        totals.totalPago += amount;
+        totals.contasPagas += 1;
+      } else if (account.status === 'em_aberto') {
+        totals.totalEmAberto += amount;
+        totals.contasEmAberto += 1;
+
+        // Check if overdue
+        if (account.due_date < todayStr) {
+          totals.totalVencidas += amount;
+          totals.contasVencidas += 1;
+        }
+      }
+    });
+
+    return totals;
   }, [filteredAccounts]);
 
   // Validate date range (max 3 months)
@@ -596,6 +647,154 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
 
   return (
     <>
+      {/* Cards Totalizadores - Visível em todas as resoluções */}
+      <div className=" grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total de Contas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold pl-6">{filteredTotals.totalContas}</div>
+            <p className="text-xs text-muted-foreground mt-1 pl-6">
+              {filteredTotals.contasPagas} pagas · {filteredTotals.contasEmAberto} em aberto
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Pago
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600 pl-6">
+              {formatCurrency(filteredTotals.totalPago)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 pl-6">
+              {filteredTotals.contasPagas} {filteredTotals.contasPagas === 1 ? 'conta paga' : 'contas pagas'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Em Aberto
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600 pl-6">
+              {formatCurrency(filteredTotals.totalEmAberto)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 pl-6">
+              {filteredTotals.contasEmAberto} {filteredTotals.contasEmAberto === 1 ? 'conta em aberto' : 'contas em aberto'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Vencidas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600 pl-6">
+              {formatCurrency(filteredTotals.totalVencidas)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 pl-6">
+              {filteredTotals.contasVencidas} {filteredTotals.contasVencidas === 1 ? 'conta vencida' : 'contas vencidas'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Cards de Detalhamento por Tipo de Pagamento */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <Card className="border-l-4 border-l-orange-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Boleto</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pl-6">
+            <div className="flex justify-between items-center ">
+              <span className="text-xs text-muted-foreground ">Pagas:</span>
+              <span className="text-sm font-semibold text-green-600">
+                {filteredStats.boleto.pago} ({formatCurrency(filteredStats.boleto.totalPago)})
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Em Aberto:</span>
+              <span className="text-sm font-semibold text-blue-600">
+                {filteredStats.boleto.em_aberto} ({formatCurrency(filteredStats.boleto.totalAberto)})
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Cartão</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pl-6">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Pagas:</span>
+              <span className="text-sm font-semibold text-green-600">
+                {filteredStats.cartao.pago} ({formatCurrency(filteredStats.cartao.totalPago)})
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Em Aberto:</span>
+              <span className="text-sm font-semibold text-blue-600">
+                {filteredStats.cartao.em_aberto} ({formatCurrency(filteredStats.cartao.totalAberto)})
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Transferência</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pl-6">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Pagas:</span>
+              <span className="text-sm font-semibold text-green-600">
+                {filteredStats.transferencia.pago} ({formatCurrency(filteredStats.transferencia.totalPago)})
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Em Aberto:</span>
+              <span className="text-sm font-semibold text-blue-600">
+                {filteredStats.transferencia.em_aberto} ({formatCurrency(filteredStats.transferencia.totalAberto)})
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">PIX</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pl-6">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Pagas:</span>
+              <span className="text-sm font-semibold text-green-600">
+                {filteredStats.pix.pago} ({formatCurrency(filteredStats.pix.totalPago)})
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Em Aberto:</span>
+              <span className="text-sm font-semibold text-blue-600">
+                {filteredStats.pix.em_aberto} ({formatCurrency(filteredStats.pix.totalAberto)})
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filtros Desktop */}
 
 
@@ -757,56 +956,77 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
         </div>
 
         {/* Desktop/tablet: manter tabela original */}
-        <div className="hidden md:block">
+        <div className="hidden md:block overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('description')}>
+                <TableHead
+                  className={cn("cursor-pointer hover:bg-muted/50", COLUMN_WIDTHS.description)}
+                  onClick={() => handleSort('description')}
+                >
                   <div className="flex items-center">
                     Descrição
                     {getSortIcon('description')}
                   </div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('supplier')}>
+                <TableHead
+                  className={cn("cursor-pointer hover:bg-muted/50", COLUMN_WIDTHS.supplier)}
+                  onClick={() => handleSort('supplier')}
+                >
                   <div className="flex items-center">
                     Fornecedor
                     {getSortIcon('supplier')}
                   </div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('cost_center')}>
+                <TableHead
+                  className={cn("cursor-pointer hover:bg-muted/50", COLUMN_WIDTHS.cost_center)}
+                  onClick={() => handleSort('cost_center')}
+                >
                   <div className="flex items-center">
                     Centro de Custo
                     {getSortIcon('cost_center')}
                   </div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('payment_type')}>
+                <TableHead
+                  className={cn("cursor-pointer hover:bg-muted/50", COLUMN_WIDTHS.payment_type)}
+                  onClick={() => handleSort('payment_type')}
+                >
                   <div className="flex items-center">
                     Tipo
                     {getSortIcon('payment_type')}
                   </div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('amount')}>
+                <TableHead
+                  className={cn("cursor-pointer hover:bg-muted/50", COLUMN_WIDTHS.amount)}
+                  onClick={() => handleSort('amount')}
+                >
                   <div className="flex items-center">
                     Valor
                     {getSortIcon('amount')}
                   </div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('due_date')}>
+                <TableHead
+                  className={cn("cursor-pointer hover:bg-muted/50", COLUMN_WIDTHS.due_date)}
+                  onClick={() => handleSort('due_date')}
+                >
                   <div className="flex items-center">
                     Vencimento
                     {getSortIcon('due_date')}
                   </div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
+                <TableHead
+                  className={cn("cursor-pointer hover:bg-muted/50", COLUMN_WIDTHS.status)}
+                  onClick={() => handleSort('status')}
+                >
                   <div className="flex items-center">
                     Status
                     {getSortIcon('status')}
                   </div>
                 </TableHead>
-                <TableHead>Ações</TableHead>
+                <TableHead className={COLUMN_WIDTHS.actions}>Ações</TableHead>
               </TableRow>
               <TableRow>
-                <TableHead className="p-2">
+                <TableHead className={cn("p-2", COLUMN_WIDTHS.description)}>
                   <Input
                     placeholder="Filtrar..."
                     value={columnFilters.description}
@@ -814,7 +1034,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     className="h-8"
                   />
                 </TableHead>
-                <TableHead className="p-2">
+                <TableHead className={cn("p-2", COLUMN_WIDTHS.supplier)}>
                   <Input
                     placeholder="Filtrar..."
                     value={columnFilters.supplier}
@@ -822,7 +1042,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     className="h-8"
                   />
                 </TableHead>
-                <TableHead className="p-2">
+                <TableHead className={cn("p-2", COLUMN_WIDTHS.cost_center)}>
                   <Input
                     placeholder="Filtrar..."
                     value={columnFilters.costCenter}
@@ -830,7 +1050,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     className="h-8"
                   />
                 </TableHead>
-                <TableHead className="p-2">
+                <TableHead className={cn("p-2", COLUMN_WIDTHS.payment_type)}>
                   <Input
                     placeholder="Filtrar..."
                     value={columnFilters.paymentType}
@@ -838,7 +1058,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     className="h-8"
                   />
                 </TableHead>
-                <TableHead className="p-2">
+                <TableHead className={cn("p-2", COLUMN_WIDTHS.amount)}>
                   <Input
                     placeholder="Filtrar..."
                     value={columnFilters.amount}
@@ -846,7 +1066,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     className="h-8"
                   />
                 </TableHead>
-                <TableHead className="p-2">
+                <TableHead className={cn("p-2", COLUMN_WIDTHS.due_date)}>
                   <Input
                     placeholder="Filtrar..."
                     value={columnFilters.dueDate}
@@ -854,7 +1074,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     className="h-8"
                   />
                 </TableHead>
-                <TableHead className="p-2">
+                <TableHead className={cn("p-2", COLUMN_WIDTHS.status)}>
                   <Input
                     placeholder="Filtrar..."
                     value={columnFilters.status}
@@ -862,7 +1082,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                     className="h-8"
                   />
                 </TableHead>
-                <TableHead className="p-2"></TableHead>
+                <TableHead className={cn("p-2", COLUMN_WIDTHS.actions)}></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -871,7 +1091,7 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                   key={account.id}
                   className={isOverdue(account.due_date, account.status) ? 'bg-red-50' : ''}
                 >
-                  <TableCell className="font-medium">
+                  <TableCell className={cn("font-medium", COLUMN_WIDTHS.description)}>
                     <div>
                       <div>{account.description}</div>
                       {isOverdue(account.due_date, account.status) && (
@@ -879,8 +1099,8 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{account.suppliers?.name}</TableCell>
-                  <TableCell>
+                  <TableCell className={COLUMN_WIDTHS.supplier}>{account.suppliers?.name}</TableCell>
+                  <TableCell className={COLUMN_WIDTHS.cost_center}>
                     <Badge variant="outline">
                       {account.cost_centers?.code}
                     </Badge>
@@ -888,79 +1108,79 @@ export const AccountsList = ({ accounts, loading, onUpdate, onDateFilterChange }
                       {account.cost_centers?.name}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={COLUMN_WIDTHS.payment_type}>
                     <Badge variant="secondary">
                       {getPaymentTypeLabel(account.payment_type)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-mono">
+                  <TableCell className={cn("font-mono", COLUMN_WIDTHS.amount)}>
                     {formatCurrency(account.amount)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={COLUMN_WIDTHS.due_date}>
                     <div className={isOverdue(account.due_date, account.status) ? 'text-red-600 font-semibold' : ''}>
                       {formatDate(account.due_date)}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={COLUMN_WIDTHS.status}>
                     <Badge variant={getStatusColor(account.status, account.due_date) as any}>
                       {getStatusLabel(account.status, account.due_date)}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewDetails(account)}
-                        title="Visualizar detalhes"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewAttachments(account)}
-                        title="Ver anexos"
-                      >
-                        <Paperclip className="h-4 w-4" />
-                      </Button>
-
-                      {account.status === 'em_aberto' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditAccount(account)}
-                          title="Editar conta"
-                        >
-                          <Edit className="h-4 w-4" />
+                  <TableCell className={COLUMN_WIDTHS.actions}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreVertical className="h-4 w-4" />
                         </Button>
-                      )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => handleViewDetails(account)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Visualizar Detalhes
+                        </DropdownMenuItem>
 
-                      {account.status === 'em_aberto' && (hasRole('admin') || hasRole('pagador')) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handlePayAccount(account)}
-                          className="text-green-600 hover:text-green-600"
-                          title="Marcar como pago"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
+                        <DropdownMenuItem onClick={() => handleViewAttachments(account)}>
+                          <Paperclip className="h-4 w-4 mr-2" />
+                          Ver Anexos
+                        </DropdownMenuItem>
 
-                      {account.status === 'em_aberto' && hasRole('admin') && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCancelAccount(account)}
-                          className="text-destructive hover:text-destructive"
-                          title="Cancelar conta"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                        <DropdownMenuItem onClick={() => handleViewHistory(account)}>
+                          <History className="h-4 w-4 mr-2" />
+                          Ver Histórico
+                        </DropdownMenuItem>
+
+                        {account.status === 'em_aberto' && (
+                          <>
+                            <DropdownMenuSeparator />
+
+                            <DropdownMenuItem onClick={() => handleEditAccount(account)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar Conta
+                            </DropdownMenuItem>
+
+                            {(hasRole('admin') || hasRole('pagador')) && (
+                              <DropdownMenuItem
+                                onClick={() => handlePayAccount(account)}
+                                className="text-green-600 focus:text-green-600"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Marcar como Pago
+                              </DropdownMenuItem>
+                            )}
+
+                            {hasRole('admin') && (
+                              <DropdownMenuItem
+                                onClick={() => handleCancelAccount(account)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Cancelar Conta
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
+import reconizeLogo from '@/assets/reconize-gestao-inteligente1.jpg';
 
 const Layout = () => {
   const { signOut, hasRole } = useAuth();
@@ -50,8 +51,8 @@ const Layout = () => {
             </SheetTrigger>
             <SheetContent side="left" className="w-64 p-0">
               <div className="flex flex-col h-full bg-sidebar">
-                <div className="p-6 border-b border-sidebar-border">
-                  <h1 className="text-xl font-bold text-sidebar-foreground">RECONIZE</h1>
+              <div className="p-4 border-b border-sidebar-border">
+                  <img src={reconizeLogo} alt="Reconize" className="h-12 w-auto object-contain" />
                 </div>
 
                 <nav className="px-4 py-4 space-y-2 flex-1">
@@ -101,7 +102,7 @@ const Layout = () => {
             </SheetContent>
           </Sheet>
 
-          <h1 className="text-lg font-bold text-sidebar-foreground">RECONIZE - GESTÃO INTELIGENTE</h1>
+          <img src={reconizeLogo} alt="Reconize - Gestão Inteligente" className="h-10 w-auto object-contain" />
         </div>
       </div>
 

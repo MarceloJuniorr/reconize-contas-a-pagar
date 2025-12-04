@@ -82,7 +82,7 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       v.srcObject = null;
     }
     if (codeReaderRef.current) {
-      try { codeReaderRef.current.reset(); } catch { }
+      codeReaderRef.current = null;
     }
   };
 
@@ -107,7 +107,7 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       ]);
       hints.set(DecodeHintType.TRY_HARDER, true);
 
-      const codeReader = new BrowserMultiFormatReader(hints, 500);
+      const codeReader = new BrowserMultiFormatReader(hints);
       codeReaderRef.current = codeReader;
 
       const tryConstraints = async (constraints: MediaStreamConstraints, hint: string) => {
@@ -261,13 +261,8 @@ export const BarcodeScanner = ({ isOpen, onClose, onScan }: BarcodeScannerProps)
       scanIntervalRef.current = null;
     }
     if (codeReaderRef.current) {
-      try {
-        codeReaderRef.current.reset();
-        console.log('✅ CodeReader resetado');
-      } catch (e) {
-        console.warn('⚠️ Erro reset codeReader:', e);
-      }
       codeReaderRef.current = null;
+      console.log('✅ CodeReader limpo');
     }
     if (videoRef.current) {
       try {

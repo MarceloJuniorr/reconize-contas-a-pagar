@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import reconizeLogo from '@/assets/reconize-gestao-inteligente.jpg';
 
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();
@@ -143,15 +144,20 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">
-            {isResetMode ? 'Redefinir Senha' : 'Contas a Pagar'}
-          </CardTitle>
-          <CardDescription>
-            {isResetMode 
-              ? 'Digite sua nova senha' 
-              : 'Sistema de gestão de contas a pagar'
-            }
-          </CardDescription>
+          {isResetMode ? (
+            <>
+              <CardTitle className="text-2xl font-bold">Redefinir Senha</CardTitle>
+              <CardDescription>Digite sua nova senha</CardDescription>
+            </>
+          ) : (
+            <div className="flex justify-center">
+              <img 
+                src={reconizeLogo} 
+                alt="Reconize - Gestão Inteligente" 
+                className="h-24 w-auto object-contain"
+              />
+            </div>
+          )}
           {!isResetMode && (
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md text-sm text-blue-800 dark:text-blue-200">
               <p className="font-medium">⚠️ Atenção:</p>

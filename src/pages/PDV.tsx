@@ -7,13 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Search, ShoppingCart, Trash2, Percent, DollarSign, User, Store, Plus, Minus, Barcode } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Percent, DollarSign, User, Store, Plus, Minus, Barcode, Printer, Copy } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import PDVDeliveryModal from '@/components/pdv/PDVDeliveryModal';
 import PDVItemActions from '@/components/pdv/PDVItemActions';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface CartItem {
   id: string;
@@ -75,6 +78,10 @@ const PDV = () => {
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [selectedItemForAction, setSelectedItemForAction] = useState<CartItem | null>(null);
   const [customerUsedCredit, setCustomerUsedCredit] = useState(0);
+  const [showReprintModal, setShowReprintModal] = useState(false);
+  const [showReplicateModal, setShowReplicateModal] = useState(false);
+  const [replicateOrderCode, setReplicateOrderCode] = useState('');
+  const [recentSales, setRecentSales] = useState<any[]>([]);
 
   // Fetch stores
   const { data: stores = [] } = useQuery({
@@ -82,13 +89,23 @@ const PDV = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('stores')
-        .select('*')
+        .select('*, pdv_auto_print, pdv_print_format, pdv_max_discount_percent')
         .eq('active', true)
         .order('name');
       if (error) throw error;
       return data;
     }
   });
+
+  // Auto-select store if user has only one
+  useEffect(() => {
+    if (stores.length === 1 && !selectedStoreId) {
+      setSelectedStoreId(stores[0].id);
+    }
+  }, [stores, selectedStoreId]);
+
+  const selectedStore = stores.find((s: any) => s.id === selectedStoreId);
+  const maxDiscountPercent = selectedStore?.pdv_max_discount_percent ?? 100;
 
   // Fetch payment methods
   const { data: paymentMethods = [] } = useQuery({
@@ -877,6 +894,35 @@ const PDV = () => {
             <DollarSign className="h-5 w-5 mr-2" />
             Finalizar Venda
           </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!selectedStoreId) {
+                  toast.error('Selecione uma loja');
+                  return;
+                }
+                const { data } = await supabase
+                  .from('sales')
+                  .select('id, sale_number, total, created_at, customer:customers(name)')
+                  .eq('store_id', selectedStoreId)
+                  .order('created_at', { ascending: false })
+                  .limit(10);
+                setRecentSales(data || []);
+                setShowReprintModal(true);
+              }}
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Reimprimir
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowReplicateModal(true)}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Replicar
+            </Button>
+          </div>
           <Button
             variant="outline"
             className="w-full"
@@ -958,6 +1004,112 @@ const PDV = () => {
         customerId={selectedCustomer?.id || ''}
         onConfirm={handleSaleComplete}
       />
+
+      {/* Reprint Modal */}
+      <Dialog open={showReprintModal} onOpenChange={setShowReprintModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reimprimir Pedido</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-80">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Pedido</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentSales.map((sale: any) => (
+                  <TableRow key={sale.id}>
+                    <TableCell className="font-mono">{sale.sale_number}</TableCell>
+                    <TableCell>{sale.customer?.name}</TableCell>
+                    <TableCell>R$ {Number(sale.total).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Button size="sm" onClick={async () => {
+                        const { data: items } = await supabase.from('sale_items').select('*').eq('sale_id', sale.id);
+                        generateSalePDF(sale, items || []);
+                        setShowReprintModal(false);
+                      }}>
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Replicate Order Modal */}
+      <Dialog open={showReplicateModal} onOpenChange={setShowReplicateModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Replicar Pedido</DialogTitle>
+            <DialogDescription>Digite o código do pedido para copiar os itens</DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label>Código do Pedido</Label>
+            <Input
+              value={replicateOrderCode}
+              onChange={(e) => setReplicateOrderCode(e.target.value.toUpperCase())}
+              placeholder="Ex: LJ01-000001"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowReplicateModal(false);
+              setReplicateOrderCode('');
+            }}>Cancelar</Button>
+            <Button onClick={async () => {
+              if (!replicateOrderCode) return;
+              const { data: sale } = await supabase
+                .from('sales')
+                .select('id, customer_id, customer:customers(id, name, document, credit_limit, phone)')
+                .eq('sale_number', replicateOrderCode)
+                .single();
+              
+              if (!sale) {
+                toast.error('Pedido não encontrado');
+                return;
+              }
+              
+              const { data: items } = await supabase
+                .from('sale_items')
+                .select('product_id, quantity, unit_price, product:products(name, internal_code, ean)')
+                .eq('sale_id', sale.id);
+              
+              if (items && items.length > 0) {
+                const newCart = items.map((item: any) => ({
+                  id: crypto.randomUUID(),
+                  product_id: item.product_id,
+                  name: item.product?.name,
+                  internal_code: item.product?.internal_code,
+                  ean: item.product?.ean,
+                  quantity: item.quantity,
+                  unit_price: item.unit_price,
+                  discount_type: null,
+                  discount_value: 0,
+                  discount_amount: 0,
+                  total: item.quantity * item.unit_price
+                }));
+                setCart(newCart);
+                if (sale.customer) {
+                  setSelectedCustomer(sale.customer as any);
+                }
+                toast.success('Itens do pedido carregados');
+              }
+              setShowReplicateModal(false);
+              setReplicateOrderCode('');
+            }}>
+              Carregar Itens
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

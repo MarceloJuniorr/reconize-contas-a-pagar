@@ -21,6 +21,9 @@ interface StoreType {
   email: string | null;
   active: boolean;
   created_at: string;
+  pdv_auto_print: boolean;
+  pdv_print_format: string;
+  pdv_max_discount_percent: number;
 }
 
 const Stores = () => {
@@ -35,6 +38,9 @@ const Stores = () => {
     address: '',
     phone: '',
     email: '',
+    pdv_auto_print: false,
+    pdv_print_format: 'a4',
+    pdv_max_discount_percent: 100,
   });
   const { toast } = useToast();
   const { hasRole, user } = useAuth();
@@ -75,6 +81,9 @@ const Stores = () => {
         address: store.address || '',
         phone: store.phone || '',
         email: store.email || '',
+        pdv_auto_print: store.pdv_auto_print ?? false,
+        pdv_print_format: store.pdv_print_format || 'a4',
+        pdv_max_discount_percent: store.pdv_max_discount_percent ?? 100,
       });
     } else {
       setEditingStore(null);
@@ -85,6 +94,9 @@ const Stores = () => {
         address: '',
         phone: '',
         email: '',
+        pdv_auto_print: false,
+        pdv_print_format: 'a4',
+        pdv_max_discount_percent: 100,
       });
     }
     setIsDialogOpen(true);
@@ -111,6 +123,9 @@ const Stores = () => {
             address: formData.address || null,
             phone: formData.phone || null,
             email: formData.email || null,
+            pdv_auto_print: formData.pdv_auto_print,
+            pdv_print_format: formData.pdv_print_format,
+            pdv_max_discount_percent: formData.pdv_max_discount_percent,
           })
           .eq('id', editingStore.id);
 
@@ -126,6 +141,9 @@ const Stores = () => {
             address: formData.address || null,
             phone: formData.phone || null,
             email: formData.email || null,
+            pdv_auto_print: formData.pdv_auto_print,
+            pdv_print_format: formData.pdv_print_format,
+            pdv_max_discount_percent: formData.pdv_max_discount_percent,
             created_by: user?.id,
           });
 
@@ -309,7 +327,50 @@ const Stores = () => {
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+            {/* PDV Configuration Section */}
+            <div className="border-t pt-4 mt-4">
+              <h4 className="font-medium text-sm mb-3">Configurações do PDV</h4>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="pdv_auto_print"
+                    checked={formData.pdv_auto_print}
+                    onChange={(e) => setFormData({ ...formData, pdv_auto_print: e.target.checked })}
+                    className="rounded"
+                  />
+                  <Label htmlFor="pdv_auto_print" className="text-sm cursor-pointer">
+                    Imprimir pedido automaticamente ao finalizar venda
+                  </Label>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="pdv_print_format">Formato de Impressão</Label>
+                    <select
+                      id="pdv_print_format"
+                      value={formData.pdv_print_format}
+                      onChange={(e) => setFormData({ ...formData, pdv_print_format: e.target.value })}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="a4">A4</option>
+                      <option value="bobina">Bobina 80mm</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="pdv_max_discount_percent">Desconto Máx. (%)</Label>
+                    <Input
+                      id="pdv_max_discount_percent"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.pdv_max_discount_percent}
+                      onChange={(e) => setFormData({ ...formData, pdv_max_discount_percent: Number(e.target.value) })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>

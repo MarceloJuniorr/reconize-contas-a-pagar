@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, FileText, Building2, MapPin, LogOut, Users, Menu, Store, Package, Warehouse, UserCheck, ShoppingCart, CreditCard } from 'lucide-react';
+import { LayoutDashboard, FileText, Building2, MapPin, LogOut, Users, Menu, Store, Package, Warehouse, UserCheck, ShoppingCart, CreditCard, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -59,6 +59,7 @@ const Layout = () => {
 
   if (hasStoreAccess) {
     navigation.push({ name: 'PDV', href: '/pdv', icon: ShoppingCart });
+    navigation.push({ name: 'Vendas', href: '/sales', icon: ShoppingBag });
     navigation.push({ name: 'Produtos', href: '/products', icon: Package });
     navigation.push({ name: 'Estoque', href: '/stock', icon: Warehouse });
     navigation.push({ name: 'Clientes', href: '/customers', icon: UserCheck });

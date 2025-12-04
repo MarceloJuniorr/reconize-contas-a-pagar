@@ -32,7 +32,7 @@ const Layout = () => {
     }
 
     // Verificar se usuário tem lojas vinculadas
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('user_stores')
       .select('id')
       .eq('user_id', user.id)

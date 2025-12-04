@@ -92,7 +92,7 @@ const Products = () => {
   };
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('products')
       .select('*, brands(name), categories(name), units(abbreviation)')
       .order('name');
@@ -101,26 +101,26 @@ const Products = () => {
   };
 
   const fetchBrands = async () => {
-    const { data, error } = await supabase.from('brands').select('*').order('name');
+    const { data, error } = await (supabase as any).from('brands').select('*').order('name');
     if (error) console.error(error);
     else setBrands(data || []);
   };
 
   const fetchCategories = async () => {
-    const { data, error } = await supabase.from('categories').select('*').order('name');
+    const { data, error } = await (supabase as any).from('categories').select('*').order('name');
     if (error) console.error(error);
     else setCategories(data || []);
   };
 
   const fetchUnits = async () => {
-    const { data, error } = await supabase.from('units').select('*').order('name');
+    const { data, error } = await (supabase as any).from('units').select('*').order('name');
     if (error) console.error(error);
     else setUnits(data || []);
   };
 
   const generateInternalCode = async () => {
     // Buscar o maior código existente e incrementar
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('products')
       .select('internal_code')
       .like('internal_code', 'P%')
@@ -184,11 +184,11 @@ const Products = () => {
       if (editingProduct) {
         // Não permite alterar internal_code após criação
         const { internal_code, ...updatePayload } = payload;
-        const { error } = await supabase.from('products').update(updatePayload).eq('id', editingProduct.id);
+        const { error } = await (supabase as any).from('products').update(updatePayload).eq('id', editingProduct.id);
         if (error) throw error;
         toast({ title: "Sucesso", description: "Produto atualizado" });
       } else {
-        const { error } = await supabase.from('products').insert(payload);
+        const { error } = await (supabase as any).from('products').insert(payload);
         if (error) throw error;
         toast({ title: "Sucesso", description: "Produto criado" });
       }
@@ -202,7 +202,7 @@ const Products = () => {
 
   const handleDeleteProduct = async (id: string) => {
     if (!confirm('Excluir este produto?')) return;
-    const { error } = await supabase.from('products').delete().eq('id', id);
+    const { error } = await (supabase as any).from('products').delete().eq('id', id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else {
       toast({ title: "Sucesso", description: "Produto excluído" });
@@ -237,10 +237,10 @@ const Products = () => {
 
       if (editingItem) {
         const { created_by, ...updatePayload } = payload;
-        const { error } = await supabase.from(table).update(updatePayload).eq('id', editingItem.id);
+        const { error } = await (supabase as any).from(table).update(updatePayload).eq('id', editingItem.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from(table).insert(payload);
+        const { error } = await (supabase as any).from(table).insert(payload);
         if (error) throw error;
       }
 
@@ -257,7 +257,7 @@ const Products = () => {
   const handleDeleteSimple = async (type: 'brand' | 'category' | 'unit', id: string) => {
     if (!confirm('Excluir este item?')) return;
     const table = type === 'brand' ? 'brands' : type === 'category' ? 'categories' : 'units';
-    const { error } = await supabase.from(table).delete().eq('id', id);
+    const { error } = await (supabase as any).from(table).delete().eq('id', id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else {
       toast({ title: "Sucesso", description: "Item excluído" });

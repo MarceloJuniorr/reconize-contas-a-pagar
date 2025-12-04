@@ -70,15 +70,15 @@ const StockReceipt = () => {
 
     try {
       // Buscar lojas do usuário
-      const { data: userStores } = await supabase
+      const { data: userStores } = await (supabase as any)
         .from('user_stores')
         .select('store_id')
         .eq('user_id', user.id);
 
-      let storesQuery = supabase.from('stores').select('id, name, code').eq('active', true);
+      let storesQuery = (supabase as any).from('stores').select('id, name, code').eq('active', true);
       
       if (userStores && userStores.length > 0) {
-        const storeIds = userStores.map(us => us.store_id);
+        const storeIds = userStores.map((us: any) => us.store_id);
         storesQuery = storesQuery.in('id', storeIds);
       }
 
@@ -90,7 +90,7 @@ const StockReceipt = () => {
       }
 
       // Buscar produtos
-      const { data: productsData } = await supabase
+      const { data: productsData } = await (supabase as any)
         .from('products')
         .select('id, internal_code, name, ean, units(abbreviation)')
         .eq('active', true)
@@ -105,7 +105,7 @@ const StockReceipt = () => {
   };
 
   const fetchCurrentPricing = async () => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('product_pricing')
       .select('cost_price, sale_price')
       .eq('product_id', formData.product_id)
@@ -141,7 +141,7 @@ const StockReceipt = () => {
       const newCostPrice = parseFloat(formData.new_cost_price.replace(',', '.'));
       const newSalePrice = parseFloat(formData.new_sale_price.replace(',', '.'));
 
-      const { error } = await supabase.from('stock_receipts').insert({
+      const { error } = await (supabase as any).from('stock_receipts').insert({
         store_id: formData.store_id,
         product_id: formData.product_id,
         quantity,

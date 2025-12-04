@@ -65,7 +65,7 @@ const UserManagement = () => {
             .select('role')
             .eq('user_id', profile.id);
 
-          const { data: userStores } = await supabase
+          const { data: userStores } = await (supabase as any)
             .from('user_stores')
             .select('store_id')
             .eq('user_id', profile.id);
@@ -73,7 +73,7 @@ const UserManagement = () => {
           return {
             ...profile,
             roles: userRoles?.map(r => r.role) || [],
-            stores: userStores?.map(s => s.store_id) || []
+            stores: userStores?.map((s: any) => s.store_id) || []
           };
         })
       );
@@ -92,7 +92,7 @@ const UserManagement = () => {
   };
 
   const fetchStores = async () => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('stores')
       .select('id, name, code')
       .eq('active', true)
@@ -117,7 +117,7 @@ const UserManagement = () => {
 
     try {
       // Remover todas as lojas atuais
-      await supabase
+      await (supabase as any)
         .from('user_stores')
         .delete()
         .eq('user_id', selectedUser.id);
@@ -129,7 +129,7 @@ const UserManagement = () => {
           store_id
         }));
 
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('user_stores')
           .insert(inserts);
 

@@ -910,6 +910,51 @@ export type Database = {
           },
         ]
       }
+      sale_payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          installments: number | null
+          is_credit: boolean | null
+          payment_method_id: string | null
+          sale_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          installments?: number | null
+          is_credit?: boolean | null
+          payment_method_id?: string | null
+          sale_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          installments?: number | null
+          is_credit?: boolean | null
+          payment_method_id?: string | null
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_payments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           amount_credit: number | null
@@ -922,6 +967,7 @@ export type Database = {
           customer_id: string
           delivery_address_id: string | null
           delivery_date: string | null
+          delivery_type: string | null
           discount_amount: number | null
           discount_type: string | null
           discount_value: number | null
@@ -948,6 +994,7 @@ export type Database = {
           customer_id: string
           delivery_address_id?: string | null
           delivery_date?: string | null
+          delivery_type?: string | null
           discount_amount?: number | null
           discount_type?: string | null
           discount_value?: number | null
@@ -974,6 +1021,7 @@ export type Database = {
           customer_id?: string
           delivery_address_id?: string | null
           delivery_date?: string | null
+          delivery_type?: string | null
           discount_amount?: number | null
           discount_type?: string | null
           discount_value?: number | null

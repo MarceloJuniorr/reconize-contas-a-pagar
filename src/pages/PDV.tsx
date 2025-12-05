@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import PDVDeliveryModal from '@/components/pdv/PDVDeliveryModal';
+import PDVPaymentStep from '@/components/pdv/PDVPaymentStep';
 import PDVItemActions from '@/components/pdv/PDVItemActions';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -57,6 +57,15 @@ interface PaymentMethod {
   max_installments: number;
 }
 
+interface PaymentEntry {
+  id: string;
+  paymentMethodId: string;
+  paymentMethodName: string;
+  amount: number;
+  installments: number;
+  isCredit: boolean;
+}
+
 const PDV = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -71,11 +80,7 @@ const PDV = () => {
   const [globalDiscountType, setGlobalDiscountType] = useState<'percentage' | 'fixed'>('fixed');
   const [globalDiscountValue, setGlobalDiscountValue] = useState(0);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
-  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');
-  const [installments, setInstallments] = useState(1);
-  const [amountPaid, setAmountPaid] = useState(0);
-  const [useCredit, setUseCredit] = useState(false);
-  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [showPaymentStep, setShowPaymentStep] = useState(false);
   const [selectedItemForAction, setSelectedItemForAction] = useState<CartItem | null>(null);
   const [customerUsedCredit, setCustomerUsedCredit] = useState(0);
   const [showReprintModal, setShowReprintModal] = useState(false);
@@ -199,9 +204,6 @@ const PDV = () => {
     : globalDiscountValue;
   const total = Math.max(0, subtotal - globalDiscountAmount);
   const availableCredit = (selectedCustomer?.credit_limit || 0) - customerUsedCredit;
-  const creditAmount = useCredit ? Math.min(total - amountPaid, availableCredit) : 0;
-
-  const selectedPaymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.product_id === product.id);
@@ -287,47 +289,37 @@ const PDV = () => {
       toast.error('Adicione produtos ao carrinho');
       return;
     }
-    if (!selectedPaymentMethodId) {
-      toast.error('Selecione um método de pagamento');
-      return;
-    }
-
-    const remaining = total - amountPaid - creditAmount;
-    if (remaining > 0.01 && !useCredit) {
-      toast.error('Valor pago é menor que o total. Use crediário ou ajuste o valor.');
-      return;
-    }
-
-    if (creditAmount > availableCredit) {
-      toast.error('Limite de crédito insuficiente');
-      return;
-    }
-
-    setShowDeliveryModal(true);
+    setShowPaymentStep(true);
   };
 
-  const handleSaleComplete = async (deliveryAddressId: string | null, deliveryDate: Date | null, newAddress?: any) => {
+  const handleSaleComplete = async (data: {
+    deliveryType: 'pickup' | 'delivery';
+    deliveryAddressId: string | null;
+    deliveryDate: Date | null;
+    payments: PaymentEntry[];
+    newAddress?: any;
+  }) => {
     try {
       // Generate sale number
       const { data: saleNumber } = await supabase.rpc('generate_sale_number', { p_store_id: selectedStoreId });
 
       // Create delivery address if new
-      let finalDeliveryAddressId = deliveryAddressId;
-      if (newAddress && selectedCustomer) {
+      let finalDeliveryAddressId = data.deliveryAddressId;
+      if (data.newAddress && selectedCustomer) {
         const { data: newAddrData, error: addrError } = await supabase
           .from('customer_delivery_addresses')
           .insert({
             customer_id: selectedCustomer.id,
-            name: newAddress.name,
-            address_street: newAddress.address_street,
-            address_number: newAddress.address_number,
-            address_complement: newAddress.address_complement,
-            address_neighborhood: newAddress.address_neighborhood,
-            address_city: newAddress.address_city,
-            address_state: newAddress.address_state,
-            address_zip: newAddress.address_zip,
-            contact_name: newAddress.contact_name,
-            contact_phone: newAddress.contact_phone
+            name: data.newAddress.name,
+            address_street: data.newAddress.address_street,
+            address_number: data.newAddress.address_number,
+            address_complement: data.newAddress.address_complement,
+            address_neighborhood: data.newAddress.address_neighborhood,
+            address_city: data.newAddress.address_city,
+            address_state: data.newAddress.address_state,
+            address_zip: data.newAddress.address_zip,
+            contact_name: data.newAddress.contact_name,
+            contact_phone: data.newAddress.contact_phone
           })
           .select()
           .single();
@@ -335,6 +327,11 @@ const PDV = () => {
         if (addrError) throw addrError;
         finalDeliveryAddressId = newAddrData.id;
       }
+
+      // Calculate totals from payments
+      const amountPaid = data.payments.filter(p => !p.isCredit).reduce((sum, p) => sum + p.amount, 0);
+      const creditAmount = data.payments.filter(p => p.isCredit).reduce((sum, p) => sum + p.amount, 0);
+      const firstPaymentMethod = data.payments.find(p => !p.isCredit);
 
       // Create sale
       const { data: sale, error: saleError } = await supabase
@@ -344,23 +341,35 @@ const PDV = () => {
           store_id: selectedStoreId,
           customer_id: selectedCustomer!.id,
           delivery_address_id: finalDeliveryAddressId,
-          delivery_date: deliveryDate?.toISOString().split('T')[0],
+          delivery_date: data.deliveryDate?.toISOString().split('T')[0],
+          delivery_type: data.deliveryType,
           subtotal,
           discount_type: globalDiscountValue > 0 ? globalDiscountType : null,
           discount_value: globalDiscountValue,
           discount_amount: globalDiscountAmount,
           total,
-          payment_method_id: selectedPaymentMethodId,
+          payment_method_id: firstPaymentMethod?.paymentMethodId || null,
           payment_status: creditAmount > 0 ? 'credit' : 'paid',
           amount_paid: amountPaid,
           amount_credit: creditAmount,
-          installments,
+          installments: firstPaymentMethod?.installments || 1,
           created_by: user?.id
         })
         .select()
         .single();
 
       if (saleError) throw saleError;
+
+      // Create sale payments for multiple payment tracking
+      for (const payment of data.payments) {
+        await supabase.from('sale_payments').insert({
+          sale_id: sale.id,
+          payment_method_id: payment.isCredit ? null : payment.paymentMethodId,
+          amount: payment.amount,
+          installments: payment.installments,
+          is_credit: payment.isCredit
+        });
+      }
 
       // Create sale items
       const saleItems = cart.map(item => ({
@@ -382,14 +391,12 @@ const PDV = () => {
 
       // Create stock movements (exits)
       for (const item of cart) {
-        // Use RPC to properly decrement stock
         await (supabase as any).rpc('update_stock_quantity', {
           p_product_id: item.product_id,
           p_store_id: selectedStoreId,
           p_quantity: -item.quantity
         });
 
-        // Create movement record
         await supabase.from('stock_movements').insert({
           product_id: item.product_id,
           store_id: selectedStoreId,
@@ -631,11 +638,7 @@ const PDV = () => {
     setSelectedCustomer(null);
     setGlobalDiscountValue(0);
     setGlobalDiscountType('fixed');
-    setSelectedPaymentMethodId('');
-    setInstallments(1);
-    setAmountPaid(0);
-    setUseCredit(false);
-    setShowDeliveryModal(false);
+    setShowPaymentStep(false);
     setProductSearch('');
     setCustomerSearch('');
   };
@@ -860,72 +863,6 @@ const PDV = () => {
           )}
         </Button>
 
-        {/* Payment Method */}
-        <Card>
-          <CardHeader className="py-3 px-4">
-            <CardTitle className="text-sm">Pagamento</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0 space-y-4">
-            <div>
-              <Label className="text-xs">Forma de Pagamento</Label>
-              <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map((pm) => (
-                    <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedPaymentMethod?.allow_installments && (
-              <div>
-                <Label className="text-xs">Parcelas</Label>
-                <Select value={String(installments)} onValueChange={(v) => setInstallments(Number(v))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: selectedPaymentMethod.max_installments }, (_, i) => i + 1).map((n) => (
-                      <SelectItem key={n} value={String(n)}>
-                        {n}x de R$ {(total / n).toFixed(2)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div>
-              <Label className="text-xs">Valor Pago</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={amountPaid || ''}
-                onChange={(e) => setAmountPaid(Number(e.target.value))}
-                placeholder="0.00"
-              />
-            </div>
-
-            {selectedCustomer && availableCredit > 0 && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="useCredit"
-                  checked={useCredit}
-                  onChange={(e) => setUseCredit(e.target.checked)}
-                  className="rounded"
-                />
-                <Label htmlFor="useCredit" className="text-xs cursor-pointer">
-                  Usar crediário (disponível: R$ {availableCredit.toFixed(2)})
-                </Label>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Totals */}
         <Card className="bg-primary/5">
           <CardContent className="p-4 space-y-2">
@@ -943,22 +880,10 @@ const PDV = () => {
               <span>Total</span>
               <span>R$ {total.toFixed(2)}</span>
             </div>
-            {amountPaid > 0 && (
-              <div className="flex justify-between text-sm text-green-600">
-                <span>Pago</span>
-                <span>R$ {amountPaid.toFixed(2)}</span>
-              </div>
-            )}
-            {creditAmount > 0 && (
-              <div className="flex justify-between text-sm text-orange-600">
-                <span>Crediário</span>
-                <span>R$ {creditAmount.toFixed(2)}</span>
-              </div>
-            )}
-            {(amountPaid + creditAmount < total) && total > 0 && (
-              <div className="flex justify-between text-sm text-destructive font-medium">
-                <span>Restante</span>
-                <span>R$ {(total - amountPaid - creditAmount).toFixed(2)}</span>
+            {selectedCustomer && availableCredit > 0 && (
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Crédito disponível</span>
+                <span>R$ {availableCredit.toFixed(2)}</span>
               </div>
             )}
           </CardContent>
@@ -970,10 +895,10 @@ const PDV = () => {
             className="w-full"
             size="lg"
             onClick={handleFinalizeSale}
-            disabled={cart.length === 0 || !selectedCustomer || !selectedPaymentMethodId}
+            disabled={cart.length === 0 || !selectedCustomer}
           >
             <DollarSign className="h-5 w-5 mr-2" />
-            Finalizar Venda
+            Pagamento
           </Button>
           <div className="grid grid-cols-2 gap-2">
             <Button
@@ -1078,11 +1003,14 @@ const PDV = () => {
         onApplyDiscount={applyItemDiscount}
       />
 
-      {/* Delivery Modal */}
-      <PDVDeliveryModal
-        open={showDeliveryModal}
-        onClose={() => setShowDeliveryModal(false)}
+      {/* Payment Step Modal */}
+      <PDVPaymentStep
+        open={showPaymentStep}
+        onClose={() => setShowPaymentStep(false)}
+        total={total}
         customerId={selectedCustomer?.id || ''}
+        customerName={selectedCustomer?.name || ''}
+        availableCredit={availableCredit}
         onConfirm={handleSaleComplete}
       />
 

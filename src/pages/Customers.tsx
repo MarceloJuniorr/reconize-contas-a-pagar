@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Plus, Search, Edit, Trash2, Users, History } from "lucide-react";
 import CustomerForm from "@/components/customers/CustomerForm";
 import CustomerCreditHistoryModal from "@/components/customers/CustomerCreditHistoryModal";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Customer {
   id: string;
@@ -55,6 +56,7 @@ export default function Customers() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
+  const isMobile = useIsMobile();
 
   const canEdit = hasRole("admin") || hasRole("operador");
 
@@ -117,6 +119,14 @@ export default function Customers() {
     return doc;
   };
 
+  const formatCurrency = (value: number | null) => {
+    if (!value) return "-";
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -158,7 +168,81 @@ export default function Customers() {
             <p className="text-center py-4 text-muted-foreground">
               Nenhum cliente encontrado
             </p>
+          ) : isMobile ? (
+            // Mobile: Cards
+            <div className="space-y-3">
+              {filteredCustomers.map((customer) => (
+                <Card key={customer.id}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium">{customer.name}</p>
+                        {customer.email && (
+                          <p className="text-xs text-muted-foreground">{customer.email}</p>
+                        )}
+                      </div>
+                      <Badge variant={customer.active ? "default" : "secondary"}>
+                        {customer.active ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </div>
+                    <div className="text-sm space-y-1 mt-2">
+                      <p>
+                        <span className="text-muted-foreground uppercase text-xs">
+                          {customer.document_type || "cpf"}:
+                        </span>{" "}
+                        {formatDocument(customer.document, customer.document_type)}
+                      </p>
+                      {customer.phone && (
+                        <p>
+                          <span className="text-muted-foreground">Tel:</span> {customer.phone}
+                        </p>
+                      )}
+                      {customer.credit_limit && customer.credit_limit > 0 && (
+                        <p>
+                          <span className="text-muted-foreground">Limite:</span>{" "}
+                          {formatCurrency(customer.credit_limit)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-3 pt-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setHistoryCustomer(customer)}
+                      >
+                        <History className="h-4 w-4 mr-1" />
+                        Histórico
+                      </Button>
+                      {canEdit && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(customer)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                      )}
+                      {hasRole("admin") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm("Deseja realmente excluir este cliente?")) {
+                              deleteMutation.mutate(customer.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : (
+            // Desktop: Table
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -197,9 +281,7 @@ export default function Customers() {
                         {customer.phone || "-"}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        {customer.credit_limit 
-                          ? `R$ ${Number(customer.credit_limit).toFixed(2)}` 
-                          : "-"}
+                        {formatCurrency(customer.credit_limit)}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         {customer.responsible_user?.full_name || "-"}
@@ -269,7 +351,6 @@ export default function Customers() {
         </DialogContent>
       </Dialog>
 
-      {/* Credit History Modal */}
       <CustomerCreditHistoryModal
         open={!!historyCustomer}
         onClose={() => setHistoryCustomer(null)}

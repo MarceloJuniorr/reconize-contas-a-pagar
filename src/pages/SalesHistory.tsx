@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Sale {
   id: string;
@@ -41,6 +42,7 @@ interface SaleItem {
 const SalesHistory = () => {
   const { user, hasRole } = useAuth();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   
   const [selectedStoreId, setSelectedStoreId] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,7 +55,6 @@ const SalesHistory = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [printFormat, setPrintFormat] = useState<'a4' | 'bobina'>('a4');
 
-  // Fetch stores
   const { data: stores = [] } = useQuery({
     queryKey: ['stores'],
     queryFn: async () => {
@@ -67,7 +68,6 @@ const SalesHistory = () => {
     }
   });
 
-  // Fetch sales
   const { data: sales = [], isLoading } = useQuery({
     queryKey: ['sales-history', selectedStoreId, searchTerm, statusFilter],
     queryFn: async () => {
@@ -317,6 +317,13 @@ const SalesHistory = () => {
     }
   };
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -371,10 +378,60 @@ const SalesHistory = () => {
             </div>
           </div>
 
-          {/* Sales Table */}
+          {/* Sales List */}
           {isLoading ? (
             <div className="text-center py-8">Carregando...</div>
+          ) : sales.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhuma venda encontrada
+            </div>
+          ) : isMobile ? (
+            // Mobile: Cards
+            <div className="space-y-3">
+              {sales.map((sale) => (
+                <Card key={sale.id} className={sale.status === 'cancelled' ? 'opacity-60' : ''}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-mono font-medium">{sale.sale_number}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(sale.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                        </p>
+                      </div>
+                      {getStatusBadge(sale.status)}
+                    </div>
+                    <div className="text-sm space-y-1 mt-2">
+                      <p>
+                        <span className="text-muted-foreground">Cliente:</span> {sale.customer?.name}
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">Loja:</span> {sale.store?.name}
+                      </p>
+                      <p className="font-medium text-lg mt-2">
+                        {formatCurrency(sale.total)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 mt-3 pt-3 border-t">
+                      <Button variant="outline" size="sm" onClick={() => handleViewDetails(sale)}>
+                        <Eye className="h-4 w-4 mr-1" />
+                        Ver
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handlePrintClick(sale)}>
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                      {sale.status !== 'cancelled' && (hasRole('admin') || hasRole('operador')) && (
+                        <Button variant="destructive" size="sm" onClick={() => handleCancelSale(sale)}>
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : (
+            // Desktop: Table
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -401,7 +458,7 @@ const SalesHistory = () => {
                       </TableCell>
                       <TableCell>{sale.store?.name}</TableCell>
                       <TableCell>{sale.customer?.name}</TableCell>
-                      <TableCell className="font-medium">R$ {Number(sale.total).toFixed(2)}</TableCell>
+                      <TableCell className="font-medium">{formatCurrency(sale.total)}</TableCell>
                       <TableCell>{sale.payment_method?.name || '-'}</TableCell>
                       <TableCell>{getStatusBadge(sale.status)}</TableCell>
                       <TableCell>
@@ -421,13 +478,6 @@ const SalesHistory = () => {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {sales.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        Nenhuma venda encontrada
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </div>
@@ -457,105 +507,54 @@ const SalesHistory = () => {
                   <p>{selectedSale.customer?.name}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <p>{getStatusBadge(selectedSale.status)}</p>
+                  <Label className="text-muted-foreground">Pagamento</Label>
+                  <p>{selectedSale.payment_method?.name || '-'}</p>
                 </div>
               </div>
-
-              {selectedSale.status === 'cancelled' && selectedSale.cancellation_reason && (
-                <div className="p-3 bg-destructive/10 rounded-md">
-                  <Label className="text-destructive">Motivo do Cancelamento</Label>
-                  <p className="text-sm">{selectedSale.cancellation_reason}</p>
-                </div>
-              )}
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Produto</TableHead>
-                    <TableHead className="text-center">Qtd</TableHead>
-                    <TableHead className="text-right">Unit.</TableHead>
-                    <TableHead className="text-right">Desc.</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {saleItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{item.product?.name}</div>
-                          <div className="text-xs text-muted-foreground">{item.product?.internal_code}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">{item.quantity}</TableCell>
-                      <TableCell className="text-right">R$ {item.unit_price.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">R$ {item.discount_amount.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-medium">R$ {item.total.toFixed(2)}</TableCell>
+              
+              <div>
+                <Label className="text-muted-foreground mb-2 block">Itens</Label>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead className="text-right">Qtd</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {saleItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.product?.name}</TableCell>
+                        <TableCell className="text-right">{item.quantity}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-              <div className="flex justify-between items-center border-t pt-4">
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Pagamento: </span>
-                  <span>{selectedSale.payment_method?.name || '-'}</span>
+              <div className="flex justify-between items-center pt-4 border-t">
+                <div>
+                  {selectedSale.status === 'cancelled' && selectedSale.cancellation_reason && (
+                    <p className="text-sm text-destructive">
+                      <strong>Motivo cancelamento:</strong> {selectedSale.cancellation_reason}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold">Total: R$ {Number(selectedSale.total).toFixed(2)}</div>
+                  <p className="text-2xl font-bold">{formatCurrency(selectedSale.total)}</p>
                   {Number(selectedSale.amount_credit) > 0 && (
-                    <div className="text-sm text-orange-600">Crediário: R$ {Number(selectedSale.amount_credit).toFixed(2)}</div>
+                    <p className="text-sm text-muted-foreground">
+                      Crediário: {formatCurrency(selectedSale.amount_credit)}
+                    </p>
                   )}
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDetailsModal(false)}>Fechar</Button>
-            <Button onClick={() => {
-              setShowDetailsModal(false);
-              if (selectedSale) handlePrintClick(selectedSale);
-            }}>
-              <Printer className="h-4 w-4 mr-2" />
-              Imprimir
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Print Format Modal */}
-      <Dialog open={showPrintModal} onOpenChange={setShowPrintModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Formato de Impressão</DialogTitle>
-            <DialogDescription>Selecione o formato desejado para impressão</DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-4">
-            <Button
-              variant={printFormat === 'a4' ? 'default' : 'outline'}
-              onClick={() => setPrintFormat('a4')}
-              className="flex-1 h-24 flex-col"
-            >
-              <span className="text-2xl mb-2">📄</span>
-              <span>A4</span>
-            </Button>
-            <Button
-              variant={printFormat === 'bobina' ? 'default' : 'outline'}
-              onClick={() => setPrintFormat('bobina')}
-              className="flex-1 h-24 flex-col"
-            >
-              <span className="text-2xl mb-2">🧾</span>
-              <span>Bobina 80mm</span>
-            </Button>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPrintModal(false)}>Cancelar</Button>
-            <Button onClick={handlePrint}>
-              <Printer className="h-4 w-4 mr-2" />
-              Imprimir
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -565,30 +564,57 @@ const SalesHistory = () => {
           <DialogHeader>
             <DialogTitle>Cancelar Venda</DialogTitle>
             <DialogDescription>
-              Esta ação irá cancelar a venda {selectedSale?.sale_number} e estornar o estoque dos produtos.
+              Esta ação irá cancelar a venda e devolver os itens ao estoque.
             </DialogDescription>
           </DialogHeader>
-          <div>
-            <Label>Motivo do Cancelamento *</Label>
-            <Input
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Informe o motivo..."
-            />
+          <div className="space-y-4">
+            <div>
+              <Label>Motivo do cancelamento *</Label>
+              <Input
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Informe o motivo..."
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowCancelModal(false);
-              setCancelReason('');
-            }}>
+            <Button variant="outline" onClick={() => setShowCancelModal(false)}>
               Voltar
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={confirmCancel}
-              disabled={cancelMutation.isPending}
-            >
+            <Button variant="destructive" onClick={confirmCancel} disabled={cancelMutation.isPending}>
               {cancelMutation.isPending ? 'Cancelando...' : 'Confirmar Cancelamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Modal */}
+      <Dialog open={showPrintModal} onOpenChange={setShowPrintModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Imprimir Pedido</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Formato de impressão</Label>
+              <Select value={printFormat} onValueChange={(v) => setPrintFormat(v as 'a4' | 'bobina')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="a4">A4</SelectItem>
+                  <SelectItem value="bobina">Bobina 80mm</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPrintModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handlePrint}>
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimir
             </Button>
           </DialogFooter>
         </DialogContent>

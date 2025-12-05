@@ -9,9 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, CreditCard } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface PaymentMethod {
   id: string;
@@ -34,6 +36,7 @@ const PaymentMethods = () => {
     allow_installments: false,
     max_installments: 1
   });
+  const isMobile = useIsMobile();
 
   const { data: paymentMethods = [], isLoading } = useQuery({
     queryKey: ['payment-methods-admin'],
@@ -157,33 +160,86 @@ const PaymentMethods = () => {
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Código</TableHead>
-                <TableHead>Parcelas</TableHead>
-                <TableHead>Status</TableHead>
-                {canManage && <TableHead className="w-[100px]">Ações</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+        <CardContent className="p-0 sm:p-6">
+          {isLoading ? (
+            <div className="text-center py-10">Carregando...</div>
+          ) : paymentMethods.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <CreditCard className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              Nenhum método de pagamento cadastrado
+            </div>
+          ) : isMobile ? (
+            // Mobile: Cards
+            <div className="space-y-3 p-4">
+              {paymentMethods.map((method) => (
+                <Card key={method.id}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium">{method.name}</p>
+                        <p className="text-xs text-muted-foreground">{method.code}</p>
+                      </div>
+                      <Badge variant={method.active ? "default" : "secondary"}>
+                        {method.active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm mt-2">
+                      <span className="text-muted-foreground">Parcelas:</span>{' '}
+                      {method.allow_installments ? `Até ${method.max_installments}x` : 'Não'}
+                    </p>
+                    {canManage && (
+                      <div className="flex gap-2 mt-3 pt-3 border-t">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(method)}
+                        >
+                          <Pencil className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                        {hasRole('admin') && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Deseja excluir o método "{method.name}"? Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteMutation.mutate(method.id)}>
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            // Desktop: Table
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10">
-                    Carregando...
-                  </TableCell>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Parcelas</TableHead>
+                  <TableHead>Status</TableHead>
+                  {canManage && <TableHead className="w-[100px]">Ações</TableHead>}
                 </TableRow>
-              ) : paymentMethods.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                    <CreditCard className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                    Nenhum método de pagamento cadastrado
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paymentMethods.map((method) => (
+              </TableHeader>
+              <TableBody>
+                {paymentMethods.map((method) => (
                   <TableRow key={method.id}>
                     <TableCell className="font-medium">{method.name}</TableCell>
                     <TableCell className="text-muted-foreground">{method.code}</TableCell>
@@ -191,9 +247,9 @@ const PaymentMethods = () => {
                       {method.allow_installments ? `Até ${method.max_installments}x` : 'Não'}
                     </TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs ${method.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                      <Badge variant={method.active ? "default" : "secondary"}>
                         {method.active ? 'Ativo' : 'Inativo'}
-                      </span>
+                      </Badge>
                     </TableCell>
                     {canManage && (
                       <TableCell>
@@ -232,10 +288,10 @@ const PaymentMethods = () => {
                       </TableCell>
                     )}
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Search, ShoppingCart, Trash2, Percent, DollarSign, User, Store, Plus, Minus, Barcode, Printer, Copy } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Percent, DollarSign, User, Store, Plus, Minus, Barcode, Printer, Copy, FileText, CreditCard, FolderSearch } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import PDVPaymentStep from '@/components/pdv/PDVPaymentStep';
 import PDVItemActions from '@/components/pdv/PDVItemActions';
+import PDVQuoteSearchModal from '@/components/pdv/PDVQuoteSearchModal';
+import PDVCreditPaymentModal from '@/components/pdv/PDVCreditPaymentModal';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -88,6 +90,9 @@ const PDV = () => {
   const [showReplicateModal, setShowReplicateModal] = useState(false);
   const [replicateOrderCode, setReplicateOrderCode] = useState('');
   const [recentSales, setRecentSales] = useState<any[]>([]);
+  const [showQuoteSearchModal, setShowQuoteSearchModal] = useState(false);
+  const [showCreditPaymentModal, setShowCreditPaymentModal] = useState(false);
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
 
   // Fetch stores
   const { data: stores = [] } = useQuery({
@@ -296,6 +301,125 @@ const PDV = () => {
     setShowPaymentStep(true);
   };
 
+  const handleSaveQuote = async () => {
+    if (!selectedCustomer) {
+      toast.error('Selecione um cliente');
+      return;
+    }
+    if (cart.length === 0) {
+      toast.error('Adicione produtos ao carrinho');
+      return;
+    }
+    if (!selectedStoreId) {
+      toast.error('Selecione uma loja');
+      return;
+    }
+
+    try {
+      let saleId = editingQuoteId;
+      let saleNumber = '';
+
+      if (editingQuoteId) {
+        // Update existing quote
+        const { data: existingSale } = await supabase
+          .from('sales')
+          .select('sale_number')
+          .eq('id', editingQuoteId)
+          .single();
+        
+        saleNumber = existingSale?.sale_number || '';
+
+        // Delete existing items
+        await supabase.from('sale_items').delete().eq('sale_id', editingQuoteId);
+
+        // Update the sale/quote
+        await supabase
+          .from('sales')
+          .update({
+            customer_id: selectedCustomer.id,
+            subtotal,
+            discount_type: globalDiscountValue > 0 ? globalDiscountType : null,
+            discount_value: globalDiscountValue,
+            discount_amount: globalDiscountAmount,
+            total,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingQuoteId);
+      } else {
+        // Generate quote number
+        const { data: newSaleNumber } = await supabase.rpc('generate_sale_number', { p_store_id: selectedStoreId });
+        saleNumber = newSaleNumber;
+
+        // Create new quote
+        const { data: sale, error: saleError } = await supabase
+          .from('sales')
+          .insert({
+            sale_number: newSaleNumber,
+            store_id: selectedStoreId,
+            customer_id: selectedCustomer.id,
+            subtotal,
+            discount_type: globalDiscountValue > 0 ? globalDiscountType : null,
+            discount_value: globalDiscountValue,
+            discount_amount: globalDiscountAmount,
+            total,
+            status: 'quote',
+            payment_status: 'pending',
+            created_by: user?.id
+          })
+          .select()
+          .single();
+
+        if (saleError) throw saleError;
+        saleId = sale.id;
+      }
+
+      // Create sale items
+      const saleItems = cart.map(item => ({
+        sale_id: saleId,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        discount_type: item.discount_type,
+        discount_value: item.discount_value,
+        discount_amount: item.discount_amount,
+        total: item.total
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('sale_items')
+        .insert(saleItems);
+
+      if (itemsError) throw itemsError;
+
+      toast.success(`Orçamento ${saleNumber} salvo com sucesso!`);
+      resetSale();
+    } catch (error: any) {
+      toast.error('Erro ao salvar orçamento: ' + error.message);
+    }
+  };
+
+  const handleLoadQuote = (quote: any, items: any[]) => {
+    const newCart = items.map((item: any) => ({
+      id: crypto.randomUUID(),
+      product_id: item.product_id,
+      name: item.product?.name,
+      internal_code: item.product?.internal_code,
+      ean: item.product?.ean,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      discount_type: item.discount_type,
+      discount_value: item.discount_value || 0,
+      discount_amount: item.discount_amount || 0,
+      total: item.total
+    }));
+    setCart(newCart);
+    if (quote.customer) {
+      setSelectedCustomer(quote.customer);
+    }
+    setEditingQuoteId(quote.id);
+    toast.success('Orçamento carregado para edição');
+  };
+
   const handleSaleComplete = async (data: {
     deliveryType: 'pickup' | 'delivery';
     deliveryAddressId: string | null;
@@ -422,6 +546,23 @@ const PDV = () => {
           due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           created_by: user?.id
         });
+
+        // Log purchase in customer credit history
+        await supabase.from('customer_credit_history').insert({
+          customer_id: selectedCustomer!.id,
+          action_type: 'purchase',
+          old_value: customerUsedCredit,
+          new_value: customerUsedCredit + creditAmount,
+          reference_id: sale.id,
+          reference_type: 'sale',
+          notes: `Venda ${saleNumber} - Crediário: R$ ${creditAmount.toFixed(2)}`,
+          created_by: user?.id
+        });
+      }
+
+      // If editing a quote, delete it since it's now a completed sale
+      if (editingQuoteId) {
+        setEditingQuoteId(null);
       }
 
       toast.success(`Venda ${saleNumber} finalizada com sucesso!`);
@@ -646,6 +787,7 @@ const PDV = () => {
     setProductSearch('');
     setProductQuantity(1);
     setCustomerSearch('');
+    setEditingQuoteId(null);
   };
 
   return (
@@ -924,6 +1066,32 @@ const PDV = () => {
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"
+              onClick={handleSaveQuote}
+              disabled={cart.length === 0 || !selectedCustomer}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              {editingQuoteId ? 'Atualizar Orçamento' : 'Salvar Orçamento'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowQuoteSearchModal(true)}
+              disabled={!selectedStoreId}
+            >
+              <FolderSearch className="h-4 w-4 mr-2" />
+              Buscar Orçamento
+            </Button>
+          </div>
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => setShowCreditPaymentModal(true)}
+          >
+            <CreditCard className="h-4 w-4 mr-2" />
+            Pagamento de Crediário
+          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
               onClick={async () => {
                 if (!selectedStoreId) {
                   toast.error('Selecione uma loja');
@@ -933,6 +1101,7 @@ const PDV = () => {
                   .from('sales')
                   .select('id, sale_number, total, created_at, customer:customers(name)')
                   .eq('store_id', selectedStoreId)
+                  .neq('status', 'quote')
                   .order('created_at', { ascending: false })
                   .limit(10);
                 setRecentSales(data || []);
@@ -1140,6 +1309,20 @@ const PDV = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Quote Search Modal */}
+      <PDVQuoteSearchModal
+        open={showQuoteSearchModal}
+        onClose={() => setShowQuoteSearchModal(false)}
+        storeId={selectedStoreId}
+        onLoadQuote={handleLoadQuote}
+      />
+
+      {/* Credit Payment Modal */}
+      <PDVCreditPaymentModal
+        open={showCreditPaymentModal}
+        onClose={() => setShowCreditPaymentModal(false)}
+      />
     </div>
   );
 };

@@ -59,6 +59,7 @@ const Products = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('products');
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   
   // Product dialog
@@ -304,7 +305,11 @@ const Products = () => {
               ) : isMobile ? (
                 <div className="space-y-3">
                   {products.map((product) => (
-                    <Card key={product.id}>
+                    <Card 
+                      key={product.id} 
+                      className={`cursor-pointer transition-all ${selectedCardId === product.id ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => setSelectedCardId(selectedCardId === product.id ? null : product.id)}
+                    >
                       <CardContent className="p-4">
                         <div className="flex justify-between items-start mb-2">
                           <div>
@@ -321,15 +326,15 @@ const Products = () => {
                           <p><span className="text-muted-foreground">Cat:</span> {product.categories?.name || '-'}</p>
                           <p><span className="text-muted-foreground">UN:</span> {product.units?.abbreviation || '-'}</p>
                         </div>
-                        {(canEdit || canDelete) && (
+                        {selectedCardId === product.id && (canEdit || canDelete) && (
                           <div className="flex gap-2 mt-3 pt-3 border-t">
                             {canEdit && (
-                              <Button variant="outline" size="sm" onClick={() => handleOpenProductDialog(product)}>
+                              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenProductDialog(product); }}>
                                 <Pencil className="h-4 w-4 mr-1" /> Editar
                               </Button>
                             )}
                             {canDelete && (
-                              <Button variant="destructive" size="sm" onClick={() => handleDeleteProduct(product.id)}>
+                              <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product.id); }}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
@@ -391,41 +396,76 @@ const Products = () => {
                   </Button>
                 )}
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              {isMobile ? (
+                <div className="space-y-3">
                   {brands.map((brand) => (
-                    <TableRow key={brand.id}>
-                      <TableCell className="font-medium">{brand.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={brand.active ? 'default' : 'secondary'}>
-                          {brand.active ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          {canEdit && (
-                            <Button variant="outline" size="sm" onClick={() => handleOpenSimpleDialog('brand', brand)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {canDelete && (
-                            <Button variant="destructive" size="sm" onClick={() => handleDeleteSimple('brand', brand.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                    <Card 
+                      key={brand.id}
+                      className={`cursor-pointer transition-all ${selectedCardId === brand.id ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => setSelectedCardId(selectedCardId === brand.id ? null : brand.id)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                          <p className="font-medium">{brand.name}</p>
+                          <Badge variant={brand.active ? 'default' : 'secondary'}>
+                            {brand.active ? 'Ativo' : 'Inativo'}
+                          </Badge>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                        {selectedCardId === brand.id && (canEdit || canDelete) && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t">
+                            {canEdit && (
+                              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenSimpleDialog('brand', brand); }}>
+                                <Pencil className="h-4 w-4 mr-1" /> Editar
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); handleDeleteSimple('brand', brand.id); }}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {brands.map((brand) => (
+                      <TableRow key={brand.id}>
+                        <TableCell className="font-medium">{brand.name}</TableCell>
+                        <TableCell>
+                          <Badge variant={brand.active ? 'default' : 'secondary'}>
+                            {brand.active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {canEdit && (
+                              <Button variant="outline" size="sm" onClick={() => handleOpenSimpleDialog('brand', brand)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button variant="destructive" size="sm" onClick={() => handleDeleteSimple('brand', brand.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </TabsContent>
 
             {/* Categories Tab */}
@@ -437,43 +477,81 @@ const Products = () => {
                   </Button>
                 )}
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              {isMobile ? (
+                <div className="space-y-3">
                   {categories.map((category) => (
-                    <TableRow key={category.id}>
-                      <TableCell className="font-medium">{category.name}</TableCell>
-                      <TableCell>{category.description || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant={category.active ? 'default' : 'secondary'}>
-                          {category.active ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          {canEdit && (
-                            <Button variant="outline" size="sm" onClick={() => handleOpenSimpleDialog('category', category)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {canDelete && (
-                            <Button variant="destructive" size="sm" onClick={() => handleDeleteSimple('category', category.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                    <Card 
+                      key={category.id}
+                      className={`cursor-pointer transition-all ${selectedCardId === category.id ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => setSelectedCardId(selectedCardId === category.id ? null : category.id)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">{category.name}</p>
+                            {category.description && <p className="text-xs text-muted-foreground">{category.description}</p>}
+                          </div>
+                          <Badge variant={category.active ? 'default' : 'secondary'}>
+                            {category.active ? 'Ativo' : 'Inativo'}
+                          </Badge>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                        {selectedCardId === category.id && (canEdit || canDelete) && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t">
+                            {canEdit && (
+                              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenSimpleDialog('category', category); }}>
+                                <Pencil className="h-4 w-4 mr-1" /> Editar
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); handleDeleteSimple('category', category.id); }}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell className="font-medium">{category.name}</TableCell>
+                        <TableCell>{category.description || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant={category.active ? 'default' : 'secondary'}>
+                            {category.active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {canEdit && (
+                              <Button variant="outline" size="sm" onClick={() => handleOpenSimpleDialog('category', category)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button variant="destructive" size="sm" onClick={() => handleDeleteSimple('category', category.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </TabsContent>
 
             {/* Units Tab */}
@@ -485,43 +563,81 @@ const Products = () => {
                   </Button>
                 )}
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Abreviação</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              {isMobile ? (
+                <div className="space-y-3">
                   {units.map((unit) => (
-                    <TableRow key={unit.id}>
-                      <TableCell className="font-medium">{unit.name}</TableCell>
-                      <TableCell className="font-mono">{unit.abbreviation}</TableCell>
-                      <TableCell>
-                        <Badge variant={unit.active ? 'default' : 'secondary'}>
-                          {unit.active ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          {canEdit && (
-                            <Button variant="outline" size="sm" onClick={() => handleOpenSimpleDialog('unit', unit)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {canDelete && (
-                            <Button variant="destructive" size="sm" onClick={() => handleDeleteSimple('unit', unit.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                    <Card 
+                      key={unit.id}
+                      className={`cursor-pointer transition-all ${selectedCardId === unit.id ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => setSelectedCardId(selectedCardId === unit.id ? null : unit.id)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">{unit.name}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{unit.abbreviation}</p>
+                          </div>
+                          <Badge variant={unit.active ? 'default' : 'secondary'}>
+                            {unit.active ? 'Ativo' : 'Inativo'}
+                          </Badge>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                        {selectedCardId === unit.id && (canEdit || canDelete) && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t">
+                            {canEdit && (
+                              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenSimpleDialog('unit', unit); }}>
+                                <Pencil className="h-4 w-4 mr-1" /> Editar
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); handleDeleteSimple('unit', unit.id); }}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Abreviação</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {units.map((unit) => (
+                      <TableRow key={unit.id}>
+                        <TableCell className="font-medium">{unit.name}</TableCell>
+                        <TableCell className="font-mono">{unit.abbreviation}</TableCell>
+                        <TableCell>
+                          <Badge variant={unit.active ? 'default' : 'secondary'}>
+                            {unit.active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {canEdit && (
+                              <Button variant="outline" size="sm" onClick={() => handleOpenSimpleDialog('unit', unit)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button variant="destructive" size="sm" onClick={() => handleDeleteSimple('unit', unit.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

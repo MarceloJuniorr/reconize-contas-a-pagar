@@ -36,6 +36,7 @@ const UserManagement = () => {
   const [isStoreDialogOpen, setIsStoreDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const { toast } = useToast();
   const { hasRole, user: currentUser } = useAuth();
   const isMobile = useIsMobile();
@@ -376,7 +377,11 @@ const UserManagement = () => {
           ) : isMobile ? (
             <div className="space-y-3">
               {users.map((user) => (
-                <Card key={user.id}>
+                <Card 
+                  key={user.id}
+                  className={`cursor-pointer transition-all ${selectedCardId === user.id ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setSelectedCardId(selectedCardId === user.id ? null : user.id)}
+                >
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -408,24 +413,26 @@ const UserManagement = () => {
                         })}
                       </div>
                     )}
-                    <div className="flex gap-2 mt-3 pt-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleManageRoles(user)}
-                      >
-                        <UserCog className="h-4 w-4 mr-1" />
-                        Papéis
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleManageStores(user)}
-                      >
-                        <Store className="h-4 w-4 mr-1" />
-                        Lojas
-                      </Button>
-                    </div>
+                    {selectedCardId === user.id && (
+                      <div className="flex gap-2 mt-3 pt-3 border-t">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); handleManageRoles(user); }}
+                        >
+                          <UserCog className="h-4 w-4 mr-1" />
+                          Papéis
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); handleManageStores(user); }}
+                        >
+                          <Store className="h-4 w-4 mr-1" />
+                          Lojas
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

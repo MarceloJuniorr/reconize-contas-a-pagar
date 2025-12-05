@@ -43,6 +43,7 @@ const Stores = () => {
     pdv_print_format: 'a4',
     pdv_max_discount_percent: 100,
   });
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const { toast } = useToast();
   const { hasRole, user } = useAuth();
   const isMobile = useIsMobile();
@@ -216,7 +217,11 @@ const Stores = () => {
             // Mobile: Cards
             <div className="space-y-3">
               {stores.map((store) => (
-                <Card key={store.id}>
+                <Card 
+                  key={store.id}
+                  className={`cursor-pointer transition-all ${selectedCardId === store.id ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setSelectedCardId(selectedCardId === store.id ? null : store.id)}
+                >
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -239,13 +244,13 @@ const Stores = () => {
                         </p>
                       )}
                     </div>
-                    {(canEdit || canDelete) && (
+                    {selectedCardId === store.id && (canEdit || canDelete) && (
                       <div className="flex gap-2 mt-3 pt-3 border-t">
                         {canEdit && (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleOpenDialog(store)}
+                            onClick={(e) => { e.stopPropagation(); handleOpenDialog(store); }}
                           >
                             <Pencil className="h-4 w-4 mr-1" />
                             Editar
@@ -255,7 +260,7 @@ const Stores = () => {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => handleDelete(store.id)}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(store.id); }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

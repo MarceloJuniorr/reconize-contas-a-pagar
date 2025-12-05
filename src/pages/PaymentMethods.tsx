@@ -36,6 +36,7 @@ const PaymentMethods = () => {
     allow_installments: false,
     max_installments: 1
   });
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   const { data: paymentMethods = [], isLoading } = useQuery({
@@ -172,7 +173,11 @@ const PaymentMethods = () => {
             // Mobile: Cards
             <div className="space-y-3 p-4">
               {paymentMethods.map((method) => (
-                <Card key={method.id}>
+                <Card 
+                  key={method.id}
+                  className={`cursor-pointer transition-all ${selectedCardId === method.id ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setSelectedCardId(selectedCardId === method.id ? null : method.id)}
+                >
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -187,12 +192,12 @@ const PaymentMethods = () => {
                       <span className="text-muted-foreground">Parcelas:</span>{' '}
                       {method.allow_installments ? `Até ${method.max_installments}x` : 'Não'}
                     </p>
-                    {canManage && (
+                    {selectedCardId === method.id && canManage && (
                       <div className="flex gap-2 mt-3 pt-3 border-t">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleEdit(method)}
+                          onClick={(e) => { e.stopPropagation(); handleEdit(method); }}
                         >
                           <Pencil className="h-4 w-4 mr-1" />
                           Editar
@@ -200,7 +205,7 @@ const PaymentMethods = () => {
                         {hasRole('admin') && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
+                              <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </AlertDialogTrigger>

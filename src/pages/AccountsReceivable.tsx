@@ -49,6 +49,7 @@ const AccountsReceivable = () => {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethodId, setPaymentMethodId] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   // Fetch accounts receivable
   const { data: accounts, isLoading } = useQuery({
@@ -359,7 +360,11 @@ const AccountsReceivable = () => {
               {filteredAccounts.map((account) => {
                 const remaining = account.amount - (account.paid_amount || 0);
                 return (
-                  <Card key={account.id}>
+                  <Card 
+                    key={account.id}
+                    className={`cursor-pointer transition-all ${selectedCardId === account.id ? 'ring-2 ring-primary' : ''}`}
+                    onClick={() => setSelectedCardId(selectedCardId === account.id ? null : account.id)}
+                  >
                     <CardContent className="p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div>
@@ -388,11 +393,11 @@ const AccountsReceivable = () => {
                           {format(new Date(account.due_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
                         </div>
                       </div>
-                      {account.status === 'pending' && (
+                      {selectedCardId === account.id && account.status === 'pending' && (
                         <div className="mt-3 pt-3 border-t">
                           <Button
                             size="sm"
-                            onClick={() => handleRecordPayment(account)}
+                            onClick={(e) => { e.stopPropagation(); handleRecordPayment(account); }}
                             className="w-full"
                           >
                             <DollarSign className="h-4 w-4 mr-1" />

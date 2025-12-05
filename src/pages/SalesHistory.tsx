@@ -54,6 +54,7 @@ const SalesHistory = () => {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [printFormat, setPrintFormat] = useState<'a4' | 'bobina'>('a4');
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   const { data: stores = [] } = useQuery({
     queryKey: ['stores'],
@@ -389,7 +390,11 @@ const SalesHistory = () => {
             // Mobile: Cards
             <div className="space-y-3">
               {sales.map((sale) => (
-                <Card key={sale.id} className={sale.status === 'cancelled' ? 'opacity-60' : ''}>
+                <Card 
+                  key={sale.id} 
+                  className={`cursor-pointer transition-all ${sale.status === 'cancelled' ? 'opacity-60' : ''} ${selectedCardId === sale.id ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setSelectedCardId(selectedCardId === sale.id ? null : sale.id)}
+                >
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -412,20 +417,22 @@ const SalesHistory = () => {
                         {formatCurrency(sale.total)}
                       </p>
                     </div>
-                    <div className="flex gap-2 mt-3 pt-3 border-t">
-                      <Button variant="outline" size="sm" onClick={() => handleViewDetails(sale)}>
-                        <Eye className="h-4 w-4 mr-1" />
-                        Ver
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handlePrintClick(sale)}>
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      {sale.status !== 'cancelled' && (hasRole('admin') || hasRole('operador')) && (
-                        <Button variant="destructive" size="sm" onClick={() => handleCancelSale(sale)}>
-                          <XCircle className="h-4 w-4" />
+                    {selectedCardId === sale.id && (
+                      <div className="flex gap-2 mt-3 pt-3 border-t">
+                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleViewDetails(sale); }}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
                         </Button>
-                      )}
-                    </div>
+                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handlePrintClick(sale); }}>
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        {sale.status !== 'cancelled' && (hasRole('admin') || hasRole('operador')) && (
+                          <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); handleCancelSale(sale); }}>
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

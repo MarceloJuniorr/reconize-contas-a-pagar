@@ -796,14 +796,14 @@ const PDV = () => {
         </div>
 
         {/* Cart Items */}
-        <Card className="flex-1 overflow-hidden">
+        <Card className="flex-1 lg:overflow-hidden">
           <CardHeader className="py-3 px-4 border-b">
             <CardTitle className="text-lg flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
               Itens ({cart.length})
             </CardTitle>
           </CardHeader>
-          <ScrollArea className="h-[calc(100%-60px)]">
+          <div className="lg:h-[calc(100%-60px)] lg:overflow-auto">
             <div className="p-2 space-y-2">
               {cart.map((item) => (
                 <div
@@ -862,7 +862,7 @@ const PDV = () => {
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </Card>
       </div>
 

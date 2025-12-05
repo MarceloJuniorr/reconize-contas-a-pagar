@@ -22,6 +22,8 @@ import Customers from "./pages/Customers";
 import PDV from "./pages/PDV";
 import PaymentMethods from "./pages/PaymentMethods";
 import SalesHistory from "./pages/SalesHistory";
+import AccountsReceivable from "./pages/AccountsReceivable";
+import CashRegisterClosing from "./pages/CashRegisterClosing";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +53,8 @@ const App = () => (
               <Route path="customers" element={<Customers />} />
               <Route path="pdv" element={<PDV />} />
               <Route path="sales" element={<SalesHistory />} />
+              <Route path="accounts-receivable" element={<AccountsReceivable />} />
+              <Route path="cash-closing" element={<CashRegisterClosing />} />
               <Route path="payment-methods" element={<PaymentMethods />} />
               <Route path="users" element={
                 <ProtectedRoute requiredRole="admin">

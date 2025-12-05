@@ -342,6 +342,97 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_register_closings: {
+        Row: {
+          card_counted: number | null
+          card_expected: number | null
+          cash_counted: number | null
+          cash_expected: number | null
+          closed_at: string | null
+          closed_by: string | null
+          closing_date: string
+          created_at: string | null
+          credit_expected: number | null
+          difference: number | null
+          id: string
+          notes: string | null
+          opened_at: string | null
+          opened_by: string | null
+          other_expected: number | null
+          pix_counted: number | null
+          pix_expected: number | null
+          status: string
+          store_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          card_counted?: number | null
+          card_expected?: number | null
+          cash_counted?: number | null
+          cash_expected?: number | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_date: string
+          created_at?: string | null
+          credit_expected?: number | null
+          difference?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string | null
+          opened_by?: string | null
+          other_expected?: number | null
+          pix_counted?: number | null
+          pix_expected?: number | null
+          status?: string
+          store_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          card_counted?: number | null
+          card_expected?: number | null
+          cash_counted?: number | null
+          cash_expected?: number | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_date?: string
+          created_at?: string | null
+          credit_expected?: number | null
+          difference?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string | null
+          opened_by?: string | null
+          other_expected?: number | null
+          pix_counted?: number | null
+          pix_expected?: number | null
+          status?: string
+          store_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_register_closings_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_register_closings_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_register_closings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           active: boolean | null
@@ -1659,6 +1750,19 @@ export type Database = {
       get_customer_used_credit: {
         Args: { p_customer_id: string }
         Returns: number
+      }
+      get_daily_sales_summary: {
+        Args: { p_date: string; p_store_id: string }
+        Returns: {
+          credit_sales_count: number
+          sales_count: number
+          total_card: number
+          total_cash: number
+          total_credit: number
+          total_other: number
+          total_pix: number
+          total_sales: number
+        }[]
       }
       get_user_roles: {
         Args: { _user_id: string }

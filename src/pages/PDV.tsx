@@ -76,6 +76,7 @@ const PDV = () => {
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [productQuantity, setProductQuantity] = useState<number>(1);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [globalDiscountType, setGlobalDiscountType] = useState<'percentage' | 'fixed'>('fixed');
   const [globalDiscountValue, setGlobalDiscountValue] = useState(0);
@@ -206,15 +207,17 @@ const PDV = () => {
   const availableCredit = (selectedCustomer?.credit_limit || 0) - customerUsedCredit;
 
   const addToCart = (product: Product) => {
+    const qty = Math.max(1, productQuantity);
     const existingItem = cart.find(item => item.product_id === product.id);
     
     if (existingItem) {
+      const newQuantity = existingItem.quantity + qty;
       setCart(cart.map(item => 
         item.product_id === product.id 
           ? { 
               ...item, 
-              quantity: item.quantity + 1,
-              total: (item.quantity + 1) * item.unit_price - item.discount_amount
+              quantity: newQuantity,
+              total: newQuantity * item.unit_price - item.discount_amount
             }
           : item
       ));
@@ -225,16 +228,17 @@ const PDV = () => {
         name: product.name,
         internal_code: product.internal_code,
         ean: product.ean,
-        quantity: 1,
+        quantity: qty,
         unit_price: product.current_price,
         discount_type: null,
         discount_value: 0,
         discount_amount: 0,
-        total: product.current_price
+        total: qty * product.current_price
       };
       setCart([...cart, newItem]);
     }
     setProductSearch('');
+    setProductQuantity(1);
     searchInputRef.current?.focus();
   };
 
@@ -640,6 +644,7 @@ const PDV = () => {
     setGlobalDiscountType('fixed');
     setShowPaymentStep(false);
     setProductSearch('');
+    setProductQuantity(1);
     setCustomerSearch('');
   };
 
@@ -732,6 +737,16 @@ const PDV = () => {
         {/* Product Search */}
         <div className="relative">
           <div className="flex gap-2">
+            <div className="w-20">
+              <Input
+                type="number"
+                min="1"
+                value={productQuantity}
+                onChange={(e) => setProductQuantity(Math.max(1, Number(e.target.value) || 1))}
+                className="text-center font-medium"
+                disabled={!selectedStoreId}
+              />
+            </div>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input

@@ -433,6 +433,61 @@ export type Database = {
           },
         ]
       }
+      cash_register_movements: {
+        Row: {
+          amount: number
+          closing_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          movement_type: string
+          reason: string
+          store_id: string
+        }
+        Insert: {
+          amount: number
+          closing_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type: string
+          reason: string
+          store_id: string
+        }
+        Update: {
+          amount?: number
+          closing_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type?: string
+          reason?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_register_movements_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "cash_register_closings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_register_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_register_movements_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           active: boolean | null

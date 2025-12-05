@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { 
   Store, CalendarIcon, DollarSign, CreditCard, Smartphone, 
   Banknote, Clock, CheckCircle, AlertTriangle, FileText,
-  Lock, Unlock
+  Lock, Unlock, ArrowDownCircle, ArrowUpCircle, Plus, Minus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -73,6 +73,18 @@ interface Sale {
   }>;
 }
 
+interface CashMovement {
+  id: string;
+  store_id: string;
+  closing_id: string | null;
+  movement_type: 'sangria' | 'suprimento';
+  amount: number;
+  reason: string;
+  created_by: string | null;
+  created_at: string;
+  creator?: { full_name: string };
+}
+
 const CashRegisterClosing = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -83,6 +95,12 @@ const CashRegisterClosing = () => {
   const [cardCounted, setCardCounted] = useState('');
   const [pixCounted, setPixCounted] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
+  
+  // Sangria/Suprimento states
+  const [movementModalOpen, setMovementModalOpen] = useState(false);
+  const [movementType, setMovementType] = useState<'sangria' | 'suprimento'>('sangria');
+  const [movementAmount, setMovementAmount] = useState('');
+  const [movementReason, setMovementReason] = useState('');
 
   // Fetch stores
   const { data: stores } = useQuery({
@@ -198,6 +216,36 @@ const CashRegisterClosing = () => {
     enabled: !!selectedStore
   });
 
+  // Fetch daily cash movements (sangria/suprimento)
+  const { data: dailyMovements } = useQuery({
+    queryKey: ['daily-movements', selectedStore, format(selectedDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!selectedStore) return [];
+
+      const startOfDay = format(selectedDate, 'yyyy-MM-dd') + 'T00:00:00';
+      const endOfDay = format(selectedDate, 'yyyy-MM-dd') + 'T23:59:59';
+
+      const { data, error } = await supabase
+        .from('cash_register_movements')
+        .select(`
+          *,
+          creator:profiles!cash_register_movements_created_by_fkey(full_name)
+        `)
+        .eq('store_id', selectedStore)
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as CashMovement[];
+    },
+    enabled: !!selectedStore
+  });
+
+  // Calculate totals from movements
+  const totalSangria = dailyMovements?.filter(m => m.movement_type === 'sangria').reduce((sum, m) => sum + m.amount, 0) || 0;
+  const totalSuprimento = dailyMovements?.filter(m => m.movement_type === 'suprimento').reduce((sum, m) => sum + m.amount, 0) || 0;
+
   // Mutation to open cash register
   const openMutation = useMutation({
     mutationFn: async () => {
@@ -273,6 +321,47 @@ const CashRegisterClosing = () => {
     setCardCounted('');
     setPixCounted('');
     setClosingNotes('');
+  };
+
+  // Mutation to create cash movement (sangria/suprimento)
+  const movementMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedStore || !user) throw new Error('Dados inválidos');
+      
+      const amount = parseFloat(movementAmount);
+      if (!amount || amount <= 0) throw new Error('Valor inválido');
+      if (!movementReason.trim()) throw new Error('Informe o motivo');
+
+      const { error } = await supabase
+        .from('cash_register_movements')
+        .insert({
+          store_id: selectedStore,
+          closing_id: existingClosing?.id || null,
+          movement_type: movementType,
+          amount: amount,
+          reason: movementReason,
+          created_by: user.id
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daily-movements'] });
+      toast.success(movementType === 'sangria' ? 'Sangria registrada!' : 'Suprimento registrado!');
+      setMovementModalOpen(false);
+      setMovementAmount('');
+      setMovementReason('');
+    },
+    onError: (error) => {
+      toast.error('Erro: ' + (error as Error).message);
+    }
+  });
+
+  const openMovementModal = (type: 'sangria' | 'suprimento') => {
+    setMovementType(type);
+    setMovementAmount('');
+    setMovementReason('');
+    setMovementModalOpen(true);
   };
 
   const handleOpenClose = () => {
@@ -390,14 +479,65 @@ const CashRegisterClosing = () => {
                   )}
 
                   {existingClosing?.status === 'open' && (
-                    <Button onClick={handleOpenClose}>
-                      <Lock className="h-4 w-4 mr-2" />
-                      Fechar Caixa
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => openMovementModal('suprimento')}
+                        className="text-green-600 border-green-600 hover:bg-green-50"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Suprimento
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => openMovementModal('sangria')}
+                        className="text-red-600 border-red-600 hover:bg-red-50"
+                      >
+                        <Minus className="h-4 w-4 mr-2" />
+                        Sangria
+                      </Button>
+                      <Button onClick={handleOpenClose}>
+                        <Lock className="h-4 w-4 mr-2" />
+                        Fechar Caixa
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardHeader>
             </Card>
+
+            {/* Sangria/Suprimento Summary */}
+            {(totalSangria > 0 || totalSuprimento > 0) && (
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="border-green-200 bg-green-50/50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
+                      <ArrowUpCircle className="h-4 w-4" />
+                      Total Suprimentos
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl font-bold text-green-600">
+                      R$ {totalSuprimento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-red-200 bg-red-50/50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-red-700 flex items-center gap-2">
+                      <ArrowDownCircle className="h-4 w-4" />
+                      Total Sangrias
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl font-bold text-red-600">
+                      R$ {totalSangria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -532,6 +672,64 @@ const CashRegisterClosing = () => {
                       <p className="text-sm">{existingClosing.notes}</p>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Cash Movements List */}
+            {dailyMovements && dailyMovements.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Banknote className="h-5 w-5" />
+                    Movimentações do Dia
+                  </CardTitle>
+                  <CardDescription>
+                    {dailyMovements.length} movimentação(ões) registrada(s)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Hora</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          <TableHead>Motivo</TableHead>
+                          <TableHead>Registrado por</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dailyMovements.map((movement) => (
+                          <TableRow key={movement.id}>
+                            <TableCell>
+                              {movement.movement_type === 'sangria' ? (
+                                <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                                  <Minus className="h-3 w-3" />
+                                  Sangria
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-green-500 flex items-center gap-1 w-fit">
+                                  <Plus className="h-3 w-3" />
+                                  Suprimento
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>{format(new Date(movement.created_at), 'HH:mm')}</TableCell>
+                            <TableCell className={cn(
+                              "text-right font-medium",
+                              movement.movement_type === 'sangria' ? "text-red-600" : "text-green-600"
+                            )}>
+                              {movement.movement_type === 'sangria' ? '-' : '+'} R$ {movement.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate">{movement.reason}</TableCell>
+                            <TableCell>{movement.creator?.full_name || 'N/A'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -742,6 +940,64 @@ const CashRegisterClosing = () => {
               disabled={closeMutation.isPending}
             >
               {closeMutation.isPending ? 'Fechando...' : 'Confirmar Fechamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Movement Modal (Sangria/Suprimento) */}
+      <Dialog open={movementModalOpen} onOpenChange={setMovementModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {movementType === 'sangria' ? (
+                <>
+                  <ArrowDownCircle className="h-5 w-5 text-red-600" />
+                  Registrar Sangria
+                </>
+              ) : (
+                <>
+                  <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                  Registrar Suprimento
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Valor</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={movementAmount}
+                onChange={(e) => setMovementAmount(e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Motivo</Label>
+              <Textarea
+                value={movementReason}
+                onChange={(e) => setMovementReason(e.target.value)}
+                placeholder={movementType === 'sangria' 
+                  ? "Ex: Depósito bancário, pagamento fornecedor..." 
+                  : "Ex: Troco inicial, reforço de caixa..."}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMovementModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => movementMutation.mutate()}
+              disabled={movementMutation.isPending}
+              className={movementType === 'sangria' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
+            >
+              {movementMutation.isPending ? 'Salvando...' : 'Confirmar'}
             </Button>
           </DialogFooter>
         </DialogContent>

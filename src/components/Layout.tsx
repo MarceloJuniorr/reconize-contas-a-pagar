@@ -99,7 +99,7 @@ const Layout = () => {
                 <img src={reconizeLogo} alt="Reconize" className="h-12 w-auto object-contain" />
               </div>
 
-              <nav className="px-4 py-4 space-y-2 flex-1">
+              <nav className="px-4 py-4 space-y-2 flex-1 overflow-y-auto">
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.href;

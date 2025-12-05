@@ -415,8 +415,10 @@ const PDV = () => {
 
       toast.success(`Venda ${saleNumber} finalizada com sucesso!`);
 
-      // Generate PDF
-      generateSalePDF(sale, saleItems);
+      // Generate PDF only if auto-print is enabled
+      if (selectedStore?.pdv_auto_print) {
+        generateSalePDF(sale, saleItems, selectedStore?.pdv_print_format || 'a4');
+      }
 
       // Reset form
       resetSale();
@@ -426,7 +428,7 @@ const PDV = () => {
     }
   };
 
-  const generateSalePDF = async (sale: any, items: any[]) => {
+  const generateSalePDF = async (sale: any, items: any[], printFormat: string = 'a4') => {
     // Fetch complete data for PDF
     const { data: saleData } = await supabase
       .from('sales')
@@ -442,22 +444,109 @@ const PDV = () => {
 
     if (!saleData) return;
 
+    const isReceipt = printFormat === 'bobina';
+
+    // Styles for A4 or Receipt (bobina 80mm)
+    const styles = isReceipt ? `
+      body { font-family: 'Courier New', monospace; width: 80mm; padding: 5mm; margin: 0; font-size: 10px; }
+      .header { text-align: center; margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
+      .header h2 { font-size: 14px; margin: 0; }
+      .header p { margin: 2px 0; }
+      .info { margin-bottom: 8px; font-size: 9px; }
+      .info h3 { font-size: 10px; margin: 5px 0 3px 0; border-bottom: 1px dashed #000; }
+      .info p { margin: 2px 0; }
+      .items { width: 100%; margin: 10px 0; }
+      .item { border-bottom: 1px dotted #ccc; padding: 3px 0; }
+      .item-name { font-weight: bold; }
+      .item-details { display: flex; justify-content: space-between; font-size: 9px; }
+      .totals { border-top: 1px dashed #000; padding-top: 5px; margin-top: 10px; }
+      .totals p { display: flex; justify-content: space-between; margin: 2px 0; }
+      .totals .total { font-weight: bold; font-size: 12px; }
+      .footer { text-align: center; margin-top: 15px; font-size: 9px; border-top: 1px dashed #000; padding-top: 5px; }
+      @media print { @page { size: 80mm auto; margin: 0; } }
+    ` : `
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      .header { text-align: center; margin-bottom: 20px; }
+      .info { margin-bottom: 15px; }
+      .info-row { display: flex; justify-content: space-between; margin: 5px 0; }
+      table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+      th { background-color: #f4f4f4; }
+      .total-row { font-weight: bold; }
+      .footer { margin-top: 30px; text-align: center; font-size: 12px; }
+    `;
+
     // Create PDF content
-    const pdfContent = `
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          .header { text-align: center; margin-bottom: 20px; }
-          .info { margin-bottom: 15px; }
-          .info-row { display: flex; justify-content: space-between; margin: 5px 0; }
-          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #f4f4f4; }
-          .total-row { font-weight: bold; }
-          .footer { margin-top: 30px; text-align: center; font-size: 12px; }
-        </style>
-      </head>
+    const pdfContent = isReceipt ? generateReceiptContent(saleData, items, styles) : generateA4Content(saleData, items, styles);
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(pdfContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  const generateReceiptContent = (saleData: any, items: any[], styles: string) => `
+    <html>
+    <head><style>${styles}</style></head>
+    <body>
+      <div class="header">
+        <h2>${saleData.store?.name || 'Loja'}</h2>
+        <p>Pedido: ${saleData.sale_number}</p>
+        <p>${new Date(saleData.created_at).toLocaleDateString('pt-BR')} ${new Date(saleData.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+      </div>
+      
+      <div class="info">
+        <h3>Cliente</h3>
+        <p>${saleData.customer?.name}</p>
+        ${saleData.customer?.document ? `<p>${saleData.customer.document}</p>` : ''}
+        ${saleData.customer?.phone ? `<p>Tel: ${saleData.customer.phone}</p>` : ''}
+      </div>
+      
+      ${saleData.delivery_address ? `
+      <div class="info">
+        <h3>Entrega</h3>
+        <p>${saleData.delivery_address.address_street}, ${saleData.delivery_address.address_number}</p>
+        <p>${saleData.delivery_address.address_neighborhood}</p>
+        <p>${saleData.delivery_address.address_city}/${saleData.delivery_address.address_state}</p>
+        ${saleData.delivery_address.contact_name ? `<p>${saleData.delivery_address.contact_name} - ${saleData.delivery_address.contact_phone}</p>` : ''}
+      </div>
+      ` : ''}
+      
+      ${saleData.delivery_date ? `<p><strong>Entrega:</strong> ${new Date(saleData.delivery_date).toLocaleDateString('pt-BR')}</p>` : ''}
+      
+      <div class="items">
+        ${items.map((item: any) => `
+          <div class="item">
+            <div class="item-name">${item.name || item.product?.name || 'Produto'}</div>
+            <div class="item-details">
+              <span>${item.quantity}x R$ ${Number(item.unit_price).toFixed(2)}</span>
+              <span>R$ ${Number(item.total).toFixed(2)}</span>
+            </div>
+            ${Number(item.discount_amount) > 0 ? `<div style="font-size:8px;color:#666;">Desc: -R$ ${Number(item.discount_amount).toFixed(2)}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+      
+      <div class="totals">
+        <p><span>Subtotal:</span><span>R$ ${Number(saleData.subtotal).toFixed(2)}</span></p>
+        ${Number(saleData.discount_amount) > 0 ? `<p><span>Desconto:</span><span>-R$ ${Number(saleData.discount_amount).toFixed(2)}</span></p>` : ''}
+        <p class="total"><span>TOTAL:</span><span>R$ ${Number(saleData.total).toFixed(2)}</span></p>
+        <p><span>${saleData.payment_method?.name || 'Pagamento'}:</span><span>R$ ${Number(saleData.amount_paid).toFixed(2)}</span></p>
+        ${Number(saleData.amount_credit) > 0 ? `<p><span>Crediário:</span><span>R$ ${Number(saleData.amount_credit).toFixed(2)}</span></p>` : ''}
+      </div>
+      
+      <div class="footer">
+        <p>Obrigado pela preferência!</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const generateA4Content = (saleData: any, items: any[], styles: string) => `
+    <html>
+    <head><style>${styles}</style></head>
       <body>
         <div class="header">
           <h2>${saleData.store?.name || 'Loja'}</h2>
@@ -495,30 +584,30 @@ const PDV = () => {
             </tr>
           </thead>
           <tbody>
-            ${cart.map(item => `
+            ${items.map((item: any) => `
               <tr>
-                <td>${item.name}</td>
+                <td>${item.name || item.product?.name || 'Produto'}</td>
                 <td>${item.quantity}</td>
-                <td>R$ ${item.unit_price.toFixed(2)}</td>
-                <td>R$ ${item.discount_amount.toFixed(2)}</td>
-                <td>R$ ${item.total.toFixed(2)}</td>
+                <td>R$ ${Number(item.unit_price).toFixed(2)}</td>
+                <td>R$ ${Number(item.discount_amount).toFixed(2)}</td>
+                <td>R$ ${Number(item.total).toFixed(2)}</td>
               </tr>
             `).join('')}
           </tbody>
           <tfoot>
             <tr>
               <td colspan="4" style="text-align: right;">Subtotal:</td>
-              <td>R$ ${saleData.subtotal.toFixed(2)}</td>
+              <td>R$ ${Number(saleData.subtotal).toFixed(2)}</td>
             </tr>
-            ${saleData.discount_amount > 0 ? `
+            ${Number(saleData.discount_amount) > 0 ? `
             <tr>
               <td colspan="4" style="text-align: right;">Desconto:</td>
-              <td>R$ ${saleData.discount_amount.toFixed(2)}</td>
+              <td>R$ ${Number(saleData.discount_amount).toFixed(2)}</td>
             </tr>
             ` : ''}
             <tr class="total-row">
               <td colspan="4" style="text-align: right;">Total:</td>
-              <td>R$ ${saleData.total.toFixed(2)}</td>
+              <td>R$ ${Number(saleData.total).toFixed(2)}</td>
             </tr>
           </tfoot>
         </table>
@@ -536,14 +625,6 @@ const PDV = () => {
       </body>
       </html>
     `;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(pdfContent);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  };
 
   const resetSale = () => {
     setCart([]);
@@ -1030,7 +1111,7 @@ const PDV = () => {
                     <TableCell>
                       <Button size="sm" onClick={async () => {
                         const { data: items } = await supabase.from('sale_items').select('*').eq('sale_id', sale.id);
-                        generateSalePDF(sale, items || []);
+                        generateSalePDF(sale, items || [], selectedStore?.pdv_print_format || 'a4');
                         setShowReprintModal(false);
                       }}>
                         <Printer className="h-4 w-4" />

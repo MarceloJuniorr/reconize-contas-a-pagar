@@ -495,12 +495,12 @@ const StockReceiptsList = () => {
                         >
                           Status {getSortIcon('status')}
                         </button>
-                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <Select value={filterStatus || 'all'} onValueChange={(v) => setFilterStatus(v === 'all' ? '' : v)}>
                           <SelectTrigger className="h-7 text-xs">
                             <SelectValue placeholder="Todos" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Todos</SelectItem>
+                            <SelectItem value="all">Todos</SelectItem>
                             <SelectItem value="active">Ativo</SelectItem>
                             <SelectItem value="cancelled">Cancelado</SelectItem>
                           </SelectContent>

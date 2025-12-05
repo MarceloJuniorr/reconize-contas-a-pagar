@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PackagePlus, ArrowLeft, Plus, Search, Eye } from 'lucide-react';
+import { PackagePlus, ArrowLeft, Plus, Search, Eye, ArrowUpDown, ArrowUp, ArrowDown, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ReceiptDetailModal } from '@/components/stock/ReceiptDetailModal';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Store {
   id: string;
@@ -32,6 +33,9 @@ interface ReceiptHeader {
   total_value?: number;
 }
 
+type SortKey = 'receipt_number' | 'invoice_number' | 'supplier' | 'received_at' | 'items_count' | 'total_value' | 'status';
+type SortDirection = 'asc' | 'desc';
+
 const StockReceiptsList = () => {
   const [stores, setStores] = useState<Store[]>([]);
   const [receipts, setReceipts] = useState<ReceiptHeader[]>([]);
@@ -42,9 +46,18 @@ const StockReceiptsList = () => {
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   
+  // Filtros e ordenação
+  const [sortKey, setSortKey] = useState<SortKey>('received_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [filterNumber, setFilterNumber] = useState('');
+  const [filterInvoice, setFilterInvoice] = useState('');
+  const [filterSupplier, setFilterSupplier] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchStores();
@@ -173,15 +186,106 @@ const StockReceiptsList = () => {
     return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: ptBR });
   };
 
-  const filteredReceipts = receipts.filter(r => {
-    const search = searchTerm.toLowerCase();
-    return (
-      r.receipt_number.toLowerCase().includes(search) ||
-      (r.invoice_number && r.invoice_number.toLowerCase().includes(search)) ||
-      (r.supplier?.name && r.supplier.name.toLowerCase().includes(search)) ||
-      (r.notes && r.notes.toLowerCase().includes(search))
-    );
-  });
+  const formatDateShort = (dateString: string) => {
+    return format(new Date(dateString), "dd/MM/yy", { locale: ptBR });
+  };
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (key: SortKey) => {
+    if (sortKey !== key) return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    return sortDirection === 'asc' ? 
+      <ArrowUp className="h-4 w-4 ml-1" /> : 
+      <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterNumber('');
+    setFilterInvoice('');
+    setFilterSupplier('');
+    setFilterStatus('');
+  };
+
+  const hasActiveFilters = filterNumber || filterInvoice || filterSupplier || filterStatus || searchTerm;
+
+  const filteredAndSortedReceipts = useMemo(() => {
+    let result = receipts.filter(r => {
+      // Busca geral
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const matchesSearch = (
+          r.receipt_number.toLowerCase().includes(search) ||
+          (r.invoice_number && r.invoice_number.toLowerCase().includes(search)) ||
+          (r.supplier?.name && r.supplier.name.toLowerCase().includes(search)) ||
+          (r.notes && r.notes.toLowerCase().includes(search))
+        );
+        if (!matchesSearch) return false;
+      }
+
+      // Filtros individuais
+      if (filterNumber && !r.receipt_number.toLowerCase().includes(filterNumber.toLowerCase())) return false;
+      if (filterInvoice && !(r.invoice_number && r.invoice_number.toLowerCase().includes(filterInvoice.toLowerCase()))) return false;
+      if (filterSupplier && !(r.supplier?.name && r.supplier.name.toLowerCase().includes(filterSupplier.toLowerCase()))) return false;
+      if (filterStatus && r.status !== filterStatus) return false;
+
+      return true;
+    });
+
+    // Ordenação
+    result.sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      switch (sortKey) {
+        case 'receipt_number':
+          aVal = a.receipt_number;
+          bVal = b.receipt_number;
+          break;
+        case 'invoice_number':
+          aVal = a.invoice_number || '';
+          bVal = b.invoice_number || '';
+          break;
+        case 'supplier':
+          aVal = a.supplier?.name || '';
+          bVal = b.supplier?.name || '';
+          break;
+        case 'received_at':
+          aVal = new Date(a.received_at).getTime();
+          bVal = new Date(b.received_at).getTime();
+          break;
+        case 'items_count':
+          aVal = a.items_count || 0;
+          bVal = b.items_count || 0;
+          break;
+        case 'total_value':
+          aVal = a.total_value || 0;
+          bVal = b.total_value || 0;
+          break;
+        case 'status':
+          aVal = a.status;
+          bVal = b.status;
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aVal === 'string') {
+        return sortDirection === 'asc' 
+          ? aVal.localeCompare(bVal) 
+          : bVal.localeCompare(aVal);
+      }
+      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+
+    return result;
+  }, [receipts, searchTerm, filterNumber, filterInvoice, filterSupplier, filterStatus, sortKey, sortDirection]);
 
   const handleViewReceipt = (receiptId: string) => {
     setSelectedReceiptId(receiptId);
@@ -245,34 +349,169 @@ const StockReceiptsList = () => {
                 className="pl-10"
               />
             </div>
+            {hasActiveFilters && (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-2" />
+                Limpar
+              </Button>
+            )}
           </div>
 
           {loading ? (
             <div className="text-center py-8">Carregando recebimentos...</div>
-          ) : filteredReceipts.length === 0 ? (
+          ) : filteredAndSortedReceipts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               {receipts.length === 0 
                 ? 'Nenhum recebimento registrado para esta loja.'
-                : 'Nenhum recebimento encontrado com o termo buscado.'}
+                : 'Nenhum recebimento encontrado com os filtros aplicados.'}
+            </div>
+          ) : isMobile ? (
+            // Mobile: Cards
+            <div className="space-y-3">
+              {filteredAndSortedReceipts.map((receipt) => (
+                <Card key={receipt.id} className="cursor-pointer" onClick={() => handleViewReceipt(receipt.id)}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-mono font-medium">{receipt.receipt_number}</p>
+                        <p className="text-sm text-muted-foreground">{formatDateShort(receipt.received_at)}</p>
+                      </div>
+                      <Badge variant={receipt.status === 'active' ? 'default' : 'destructive'}>
+                        {receipt.status === 'active' ? 'Ativo' : 'Cancelado'}
+                      </Badge>
+                    </div>
+                    {receipt.supplier?.name && (
+                      <p className="text-sm mb-1">
+                        <span className="text-muted-foreground">Fornecedor:</span> {receipt.supplier.name}
+                      </p>
+                    )}
+                    {receipt.invoice_number && (
+                      <p className="text-sm mb-1">
+                        <span className="text-muted-foreground">NF:</span> {receipt.invoice_number}
+                      </p>
+                    )}
+                    <div className="flex justify-between items-center mt-3 pt-3 border-t">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Itens:</span> {receipt.items_count}
+                      </div>
+                      <div className="font-medium">
+                        {formatCurrency(receipt.total_value || 0)}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : (
+            // Desktop: Table with filters
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Número</TableHead>
-                    <TableHead>Nota Fiscal</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead className="text-right">Itens</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead>
+                      <div className="space-y-1">
+                        <button
+                          className="flex items-center font-medium hover:text-primary"
+                          onClick={() => handleSort('receipt_number')}
+                        >
+                          Número {getSortIcon('receipt_number')}
+                        </button>
+                        <Input
+                          placeholder="Filtrar..."
+                          value={filterNumber}
+                          onChange={(e) => setFilterNumber(e.target.value)}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="space-y-1">
+                        <button
+                          className="flex items-center font-medium hover:text-primary"
+                          onClick={() => handleSort('invoice_number')}
+                        >
+                          Nota Fiscal {getSortIcon('invoice_number')}
+                        </button>
+                        <Input
+                          placeholder="Filtrar..."
+                          value={filterInvoice}
+                          onChange={(e) => setFilterInvoice(e.target.value)}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="space-y-1">
+                        <button
+                          className="flex items-center font-medium hover:text-primary"
+                          onClick={() => handleSort('supplier')}
+                        >
+                          Fornecedor {getSortIcon('supplier')}
+                        </button>
+                        <Input
+                          placeholder="Filtrar..."
+                          value={filterSupplier}
+                          onChange={(e) => setFilterSupplier(e.target.value)}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="space-y-1">
+                        <button
+                          className="flex items-center font-medium hover:text-primary"
+                          onClick={() => handleSort('received_at')}
+                        >
+                          Data {getSortIcon('received_at')}
+                        </button>
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <div className="space-y-1">
+                        <button
+                          className="flex items-center font-medium hover:text-primary ml-auto"
+                          onClick={() => handleSort('items_count')}
+                        >
+                          Itens {getSortIcon('items_count')}
+                        </button>
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <div className="space-y-1">
+                        <button
+                          className="flex items-center font-medium hover:text-primary ml-auto"
+                          onClick={() => handleSort('total_value')}
+                        >
+                          Valor Total {getSortIcon('total_value')}
+                        </button>
+                      </div>
+                    </TableHead>
                     <TableHead>Recebido por</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>
+                      <div className="space-y-1">
+                        <button
+                          className="flex items-center font-medium hover:text-primary"
+                          onClick={() => handleSort('status')}
+                        >
+                          Status {getSortIcon('status')}
+                        </button>
+                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="Todos" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Todos</SelectItem>
+                            <SelectItem value="active">Ativo</SelectItem>
+                            <SelectItem value="cancelled">Cancelado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredReceipts.map((receipt) => (
+                  {filteredAndSortedReceipts.map((receipt) => (
                     <TableRow key={receipt.id}>
                       <TableCell className="font-mono font-medium">
                         {receipt.receipt_number}
@@ -316,9 +555,9 @@ const StockReceiptsList = () => {
             </div>
           )}
 
-          {filteredReceipts.length > 0 && (
+          {filteredAndSortedReceipts.length > 0 && (
             <div className="text-sm text-muted-foreground">
-              {filteredReceipts.length} recebimento(s) encontrado(s)
+              {filteredAndSortedReceipts.length} recebimento(s) encontrado(s)
             </div>
           )}
         </CardContent>

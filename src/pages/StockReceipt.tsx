@@ -7,12 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PackagePlus, ArrowLeft, Search, Plus, Trash2, Save } from 'lucide-react';
+import { PackagePlus, ArrowLeft, Search, Plus, Trash2, Save, UserPlus, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { QuickSupplierModal } from '@/components/stock/QuickSupplierModal';
+import { QuickProductModal } from '@/components/stock/QuickProductModal';
 
 interface Store {
   id: string;
@@ -61,12 +63,17 @@ const StockReceipt = () => {
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<ReceiptItem[]>([]);
 
+  // Modais
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [productModalOpen, setProductModalOpen] = useState(false);
+
   // Formulário do item atual sendo adicionado
   const [currentItem, setCurrentItem] = useState({
     product_id: '',
     quantity: '',
     new_cost_price: '',
     new_sale_price: '',
+    markup: '',
   });
   const [currentPricing, setCurrentPricing] = useState<{ cost_price: number; sale_price: number } | null>(null);
 
@@ -165,6 +172,47 @@ const StockReceipt = () => {
     return ((sale - cost) / cost) * 100;
   };
 
+  const calculateSalePriceFromMarkup = (costPrice: string, markup: string) => {
+    const cost = parseFloat(costPrice.replace(',', '.')) || 0;
+    const markupValue = parseFloat(markup.replace(',', '.')) || 0;
+    
+    if (cost <= 0) return '';
+    const salePrice = cost * (1 + markupValue / 100);
+    return salePrice.toFixed(2).replace('.', ',');
+  };
+
+  const handleCostPriceChange = (value: string) => {
+    const newItem = { ...currentItem, new_cost_price: value };
+    // Recalcular preço de venda se tiver markup
+    if (currentItem.markup) {
+      newItem.new_sale_price = calculateSalePriceFromMarkup(value, currentItem.markup);
+    }
+    // Recalcular markup se tiver preço de venda
+    else if (currentItem.new_sale_price) {
+      const markup = calculateMarkup(value, currentItem.new_sale_price);
+      newItem.markup = markup.toFixed(2).replace('.', ',');
+    }
+    setCurrentItem(newItem);
+  };
+
+  const handleSalePriceChange = (value: string) => {
+    const markup = calculateMarkup(currentItem.new_cost_price, value);
+    setCurrentItem({
+      ...currentItem,
+      new_sale_price: value,
+      markup: markup.toFixed(2).replace('.', ','),
+    });
+  };
+
+  const handleMarkupChange = (value: string) => {
+    const salePrice = calculateSalePriceFromMarkup(currentItem.new_cost_price, value);
+    setCurrentItem({
+      ...currentItem,
+      markup: value,
+      new_sale_price: salePrice,
+    });
+  };
+
   const handleAddItem = () => {
     if (!currentItem.product_id || !currentItem.quantity || !currentItem.new_cost_price || !currentItem.new_sale_price) {
       toast({
@@ -203,6 +251,7 @@ const StockReceipt = () => {
       quantity: '',
       new_cost_price: '',
       new_sale_price: '',
+      markup: '',
     });
     setCurrentPricing(null);
     setProductSearch('');
@@ -292,9 +341,18 @@ const StockReceipt = () => {
     }
   };
 
+  const handleSupplierCreated = (supplier: { id: string; name: string; document: string | null }) => {
+    setSuppliers([...suppliers, supplier].sort((a, b) => a.name.localeCompare(b.name)));
+    setSupplierId(supplier.id);
+  };
+
+  const handleProductCreated = (product: Product) => {
+    setProducts([...products, product].sort((a, b) => a.name.localeCompare(b.name)));
+    setCurrentItem({ ...currentItem, product_id: product.id });
+  };
+
   const selectedProduct = products.find(p => p.id === currentItem.product_id);
   const selectedSupplier = suppliers.find(s => s.id === supplierId);
-  const currentMarkup = calculateMarkup(currentItem.new_cost_price, currentItem.new_sale_price);
 
   const filteredProducts = products.filter(p => {
     const search = productSearch.toLowerCase();
@@ -365,54 +423,65 @@ const StockReceipt = () => {
 
               <div>
                 <Label>Fornecedor</Label>
-                <Popover open={supplierPopoverOpen} onOpenChange={setSupplierPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between font-normal"
-                    >
-                      {selectedSupplier ? (
-                        <span>{selectedSupplier.name}</span>
-                      ) : (
-                        <span className="text-muted-foreground">Selecione (opcional)</span>
-                      )}
-                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput
-                        placeholder="Buscar por nome ou documento..."
-                        value={supplierSearch}
-                        onValueChange={setSupplierSearch}
-                      />
-                      <CommandList className="max-h-[300px]">
-                        <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          {filteredSuppliers.map((supplier) => (
-                            <CommandItem
-                              key={supplier.id}
-                              value={`${supplier.name} ${supplier.document || ''}`}
-                              onSelect={() => {
-                                setSupplierId(supplier.id);
-                                setSupplierPopoverOpen(false);
-                                setSupplierSearch('');
-                              }}
-                            >
-                              <div className="flex flex-col">
-                                <span className="font-medium">{supplier.name}</span>
-                                {supplier.document && (
-                                  <span className="text-xs text-muted-foreground">{supplier.document}</span>
-                                )}
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <div className="flex gap-2">
+                  <Popover open={supplierPopoverOpen} onOpenChange={setSupplierPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="flex-1 justify-between font-normal"
+                      >
+                        {selectedSupplier ? (
+                          <span>{selectedSupplier.name}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Selecione (opcional)</span>
+                        )}
+                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput
+                          placeholder="Buscar por nome ou documento..."
+                          value={supplierSearch}
+                          onValueChange={setSupplierSearch}
+                        />
+                        <CommandList className="max-h-[300px]">
+                          <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
+                          <CommandGroup>
+                            {filteredSuppliers.map((supplier) => (
+                              <CommandItem
+                                key={supplier.id}
+                                value={`${supplier.name} ${supplier.document || ''}`}
+                                onSelect={() => {
+                                  setSupplierId(supplier.id);
+                                  setSupplierPopoverOpen(false);
+                                  setSupplierSearch('');
+                                }}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{supplier.name}</span>
+                                  {supplier.document && (
+                                    <span className="text-xs text-muted-foreground">{supplier.document}</span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSupplierModalOpen(true)}
+                    title="Novo Fornecedor"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div>
@@ -435,54 +504,65 @@ const StockReceipt = () => {
                   {/* Seleção de Produto com busca */}
                   <div className="md:col-span-2">
                     <Label>Produto *</Label>
-                    <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className="w-full justify-between font-normal"
-                        >
-                          {selectedProduct ? (
-                            <span>{selectedProduct.internal_code} - {selectedProduct.name}</span>
-                          ) : (
-                            <span className="text-muted-foreground">Buscar por nome ou código de barras...</span>
-                          )}
-                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-full p-0" align="start">
-                        <Command>
-                          <CommandInput
-                            placeholder="Buscar por nome, código ou EAN..."
-                            value={productSearch}
-                            onValueChange={setProductSearch}
-                          />
-                          <CommandList className="max-h-[300px]">
-                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                            <CommandGroup>
-                              {filteredProducts.map((product) => (
-                                <CommandItem
-                                  key={product.id}
-                                  value={`${product.name} ${product.internal_code} ${product.ean || ''}`}
-                                  onSelect={() => {
-                                    setCurrentItem({ ...currentItem, product_id: product.id });
-                                    setProductPopoverOpen(false);
-                                    setProductSearch('');
-                                  }}
-                                >
-                                  <div className="flex flex-col">
-                                    <span className="font-medium">{product.internal_code} - {product.name}</span>
-                                    {product.ean && (
-                                      <span className="text-xs text-muted-foreground">EAN: {product.ean}</span>
-                                    )}
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                    <div className="flex gap-2">
+                      <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="flex-1 justify-between font-normal"
+                          >
+                            {selectedProduct ? (
+                              <span>{selectedProduct.internal_code} - {selectedProduct.name}</span>
+                            ) : (
+                              <span className="text-muted-foreground">Buscar por nome ou código de barras...</span>
+                            )}
+                            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0" align="start">
+                          <Command>
+                            <CommandInput
+                              placeholder="Buscar por nome, código ou EAN..."
+                              value={productSearch}
+                              onValueChange={setProductSearch}
+                            />
+                            <CommandList className="max-h-[300px]">
+                              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                {filteredProducts.map((product) => (
+                                  <CommandItem
+                                    key={product.id}
+                                    value={`${product.name} ${product.internal_code} ${product.ean || ''}`}
+                                    onSelect={() => {
+                                      setCurrentItem({ ...currentItem, product_id: product.id });
+                                      setProductPopoverOpen(false);
+                                      setProductSearch('');
+                                    }}
+                                  >
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{product.internal_code} - {product.name}</span>
+                                      {product.ean && (
+                                        <span className="text-xs text-muted-foreground">EAN: {product.ean}</span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setProductModalOpen(true)}
+                        title="Novo Produto"
+                      >
+                        <Package className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Preço atual (se existir) */}
@@ -527,7 +607,18 @@ const StockReceipt = () => {
                       type="text"
                       placeholder="0,00"
                       value={currentItem.new_cost_price}
-                      onChange={(e) => setCurrentItem({ ...currentItem, new_cost_price: e.target.value })}
+                      onChange={(e) => handleCostPriceChange(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Markup */}
+                  <div>
+                    <Label>Markup (%)</Label>
+                    <Input
+                      type="text"
+                      placeholder="0,00"
+                      value={currentItem.markup}
+                      onChange={(e) => handleMarkupChange(e.target.value)}
                     />
                   </div>
 
@@ -538,18 +629,8 @@ const StockReceipt = () => {
                       type="text"
                       placeholder="0,00"
                       value={currentItem.new_sale_price}
-                      onChange={(e) => setCurrentItem({ ...currentItem, new_sale_price: e.target.value })}
+                      onChange={(e) => handleSalePriceChange(e.target.value)}
                     />
-                  </div>
-
-                  {/* Markup calculado */}
-                  <div>
-                    <Label>Markup</Label>
-                    <div className="h-10 flex items-center px-3 bg-muted rounded-md">
-                      <span className={`font-medium ${currentMarkup > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {currentMarkup.toFixed(2)}%
-                      </span>
-                    </div>
                   </div>
                 </div>
 
@@ -653,6 +734,19 @@ const StockReceipt = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modais */}
+      <QuickSupplierModal
+        open={supplierModalOpen}
+        onOpenChange={setSupplierModalOpen}
+        onCreated={handleSupplierCreated}
+      />
+      <QuickProductModal
+        open={productModalOpen}
+        onOpenChange={setProductModalOpen}
+        onCreated={handleProductCreated}
+        initialSearch={productSearch}
+      />
     </div>
   );
 };

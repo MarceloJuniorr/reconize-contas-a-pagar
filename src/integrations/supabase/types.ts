@@ -1830,6 +1830,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_timezone: { Args: never; Returns: undefined }
       update_stock_quantity: {
         Args: { p_product_id: string; p_quantity: number; p_store_id: string }
         Returns: undefined

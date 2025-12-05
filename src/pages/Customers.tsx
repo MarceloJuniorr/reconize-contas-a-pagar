@@ -56,6 +56,7 @@ export default function Customers() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   const canEdit = hasRole("admin") || hasRole("operador");
@@ -172,7 +173,11 @@ export default function Customers() {
             // Mobile: Cards
             <div className="space-y-3">
               {filteredCustomers.map((customer) => (
-                <Card key={customer.id}>
+                <Card 
+                  key={customer.id}
+                  className={`cursor-pointer transition-all ${selectedCardId === customer.id ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setSelectedCardId(selectedCardId === customer.id ? null : customer.id)}
+                >
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -204,39 +209,42 @@ export default function Customers() {
                         </p>
                       )}
                     </div>
-                    <div className="flex gap-2 mt-3 pt-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setHistoryCustomer(customer)}
-                      >
-                        <History className="h-4 w-4 mr-1" />
-                        Histórico
-                      </Button>
-                      {canEdit && (
+                    {selectedCardId === customer.id && (
+                      <div className="flex gap-2 mt-3 pt-3 border-t">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleEdit(customer)}
+                          onClick={(e) => { e.stopPropagation(); setHistoryCustomer(customer); }}
                         >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Editar
+                          <History className="h-4 w-4 mr-1" />
+                          Histórico
                         </Button>
-                      )}
-                      {hasRole("admin") && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm("Deseja realmente excluir este cliente?")) {
-                              deleteMutation.mutate(customer.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                        {canEdit && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleEdit(customer); }}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Editar
+                          </Button>
+                        )}
+                        {hasRole("admin") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm("Deseja realmente excluir este cliente?")) {
+                                deleteMutation.mutate(customer.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

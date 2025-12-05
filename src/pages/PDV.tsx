@@ -754,6 +754,12 @@ const PDV = () => {
                 placeholder="Buscar produto por nome, código ou EAN..."
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchResults.length > 0) {
+                    e.preventDefault();
+                    addToCart(searchResults[0]);
+                  }
+                }}
                 className="pl-10"
                 disabled={!selectedStoreId}
               />

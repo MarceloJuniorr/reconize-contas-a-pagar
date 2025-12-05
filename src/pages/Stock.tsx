@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { MovementHistoryModal } from '@/components/stock/MovementHistoryModal';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Store {
   id: string;
@@ -50,6 +51,7 @@ const Stock = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchUserStores();
@@ -65,7 +67,6 @@ const Stock = () => {
     if (!user) return;
 
     try {
-      // Buscar lojas que o usuário tem acesso
       const { data: userStores, error: userStoresError } = await (supabase as any)
         .from('user_stores')
         .select('store_id')
@@ -73,8 +74,6 @@ const Stock = () => {
 
       if (userStoresError) throw userStoresError;
 
-      // Se usuário tem lojas vinculadas, buscar detalhes delas
-      // Se não tem (e é admin/operador), buscar todas
       let storesQuery = (supabase as any).from('stores').select('id, name, code').eq('active', true);
       
       if (userStores && userStores.length > 0) {
@@ -87,7 +86,6 @@ const Stock = () => {
 
       setStores(storesData || []);
       
-      // Selecionar primeira loja automaticamente
       if (storesData && storesData.length > 0) {
         setSelectedStoreId(storesData[0].id);
       }
@@ -104,7 +102,6 @@ const Stock = () => {
     try {
       setLoading(true);
       
-      // Buscar estoque
       const { data: stockData, error: stockError } = await (supabase as any)
         .from('product_stock')
         .select(`
@@ -121,7 +118,6 @@ const Stock = () => {
 
       if (stockError) throw stockError;
 
-      // Buscar preços atuais para cada produto
       const stockWithPricing = await Promise.all(
         (stockData || []).map(async (item: any) => {
           const { data: pricing } = await (supabase as any)
@@ -239,7 +235,53 @@ const Stock = () => {
             <div className="text-center py-8 text-muted-foreground">
               {searchTerm ? 'Nenhum produto encontrado' : 'Nenhum produto em estoque nesta loja'}
             </div>
+          ) : isMobile ? (
+            // Mobile: Cards
+            <div className="space-y-3">
+              {filteredStock.map((item) => {
+                const isLowStock = item.min_quantity && item.quantity <= item.min_quantity;
+                return (
+                  <Card key={item.id} className="cursor-pointer" onClick={() => handleViewHistory(item)}>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">{item.products.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{item.products.internal_code}</p>
+                        </div>
+                        {isLowStock ? (
+                          <Badge variant="destructive" className="flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Baixo
+                          </Badge>
+                        ) : (
+                          <Badge variant="default">Normal</Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm mt-3">
+                        <div>
+                          <span className="text-muted-foreground">Qtd:</span>{' '}
+                          <span className="font-medium">{formatQuantity(item.quantity)} {item.products.units?.abbreviation || 'UN'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Custo:</span>{' '}
+                          <span className="font-medium">{item.current_pricing ? formatCurrency(item.current_pricing.cost_price) : '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Venda:</span>{' '}
+                          <span className="font-medium">{item.current_pricing ? formatCurrency(item.current_pricing.sale_price) : '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Markup:</span>{' '}
+                          <span className="font-medium">{item.current_pricing ? `${item.current_pricing.markup.toFixed(2)}%` : '-'}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           ) : (
+            // Desktop: Table
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>

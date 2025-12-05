@@ -10,6 +10,7 @@ import { Store, Plus, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface StoreType {
   id: string;
@@ -44,6 +45,7 @@ const Stores = () => {
   });
   const { toast } = useToast();
   const { hasRole, user } = useAuth();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchStores();
@@ -206,7 +208,66 @@ const Stores = () => {
         <CardContent>
           {loading ? (
             <div className="text-center py-8">Carregando...</div>
+          ) : stores.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhuma loja cadastrada
+            </div>
+          ) : isMobile ? (
+            // Mobile: Cards
+            <div className="space-y-3">
+              {stores.map((store) => (
+                <Card key={store.id}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium">{store.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{store.code}</p>
+                      </div>
+                      <Badge variant={store.active ? 'default' : 'secondary'}>
+                        {store.active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </div>
+                    <div className="text-sm space-y-1 mt-2">
+                      {store.cnpj && (
+                        <p>
+                          <span className="text-muted-foreground">CNPJ:</span> {store.cnpj}
+                        </p>
+                      )}
+                      {store.phone && (
+                        <p>
+                          <span className="text-muted-foreground">Tel:</span> {store.phone}
+                        </p>
+                      )}
+                    </div>
+                    {(canEdit || canDelete) && (
+                      <div className="flex gap-2 mt-3 pt-3 border-t">
+                        {canEdit && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenDialog(store)}
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            Editar
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDelete(store.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : (
+            // Desktop: Table
             <Table>
               <TableHeader>
                 <TableRow>
@@ -327,7 +388,6 @@ const Stores = () => {
                 />
               </div>
             </div>
-            {/* PDV Configuration Section */}
             <div className="border-t pt-4 mt-4">
               <h4 className="font-medium text-sm mb-3">Configurações do PDV</h4>
               <div className="space-y-4">

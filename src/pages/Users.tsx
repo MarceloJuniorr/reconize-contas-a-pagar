@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface StoreType {
   id: string;
@@ -37,6 +38,7 @@ const UserManagement = () => {
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
   const { toast } = useToast();
   const { hasRole, user: currentUser } = useAuth();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (hasRole('admin')) {
@@ -371,6 +373,63 @@ const UserManagement = () => {
         <CardContent>
           {loading ? (
             <div className="text-center py-8">Carregando usuários...</div>
+          ) : isMobile ? (
+            <div className="space-y-3">
+              {users.map((user) => (
+                <Card key={user.id}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium">{user.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{formatDate(user.created_at)}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {user.roles.map((role) => (
+                        <Badge
+                          key={role}
+                          className={`${getRoleColor(role)} flex items-center gap-1 text-xs`}
+                        >
+                          {getRoleIcon(role)}
+                          {getRoleLabel(role)}
+                        </Badge>
+                      ))}
+                    </div>
+                    {user.stores.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {user.stores.map((storeId) => {
+                          const store = stores.find(s => s.id === storeId);
+                          return store ? (
+                            <Badge key={storeId} variant="outline" className="text-xs">
+                              {store.code}
+                            </Badge>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-3 pt-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleManageRoles(user)}
+                      >
+                        <UserCog className="h-4 w-4 mr-1" />
+                        Papéis
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleManageStores(user)}
+                      >
+                        <Store className="h-4 w-4 mr-1" />
+                        Lojas
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : (
             <Table>
               <TableHeader>

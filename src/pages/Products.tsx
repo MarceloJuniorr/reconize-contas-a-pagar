@@ -13,6 +13,7 @@ import { Package, Plus, Pencil, Trash2, Tag, Layers, Scale } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Product {
   id: string;
@@ -58,6 +59,7 @@ const Products = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('products');
+  const isMobile = useIsMobile();
   
   // Product dialog
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
@@ -299,6 +301,44 @@ const Products = () => {
               </div>
               {loading ? (
                 <div className="text-center py-8">Carregando...</div>
+              ) : isMobile ? (
+                <div className="space-y-3">
+                  {products.map((product) => (
+                    <Card key={product.id}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-medium">{product.name}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{product.internal_code}</p>
+                          </div>
+                          <Badge variant={product.active ? 'default' : 'secondary'}>
+                            {product.active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 text-sm mt-2">
+                          {product.ean && <p><span className="text-muted-foreground">EAN:</span> {product.ean}</p>}
+                          <p><span className="text-muted-foreground">Marca:</span> {product.brands?.name || '-'}</p>
+                          <p><span className="text-muted-foreground">Cat:</span> {product.categories?.name || '-'}</p>
+                          <p><span className="text-muted-foreground">UN:</span> {product.units?.abbreviation || '-'}</p>
+                        </div>
+                        {(canEdit || canDelete) && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t">
+                            {canEdit && (
+                              <Button variant="outline" size="sm" onClick={() => handleOpenProductDialog(product)}>
+                                <Pencil className="h-4 w-4 mr-1" /> Editar
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button variant="destructive" size="sm" onClick={() => handleDeleteProduct(product.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               ) : (
                 <Table>
                   <TableHeader>

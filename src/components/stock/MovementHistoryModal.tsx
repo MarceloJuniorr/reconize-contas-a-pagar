@@ -3,12 +3,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { ArrowDownCircle, ArrowUpCircle, FileText, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ReceiptDetailModal } from './ReceiptDetailModal';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Movement {
   id: string;
@@ -37,7 +39,9 @@ export function MovementHistoryModal({ productId, storeId, productName, open, on
   const [loading, setLoading] = useState(true);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (open && productId && storeId) {
@@ -142,6 +146,66 @@ export function MovementHistoryModal({ productId, storeId, productName, open, on
           ) : movements.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Nenhuma movimentação registrada para este produto.
+            </div>
+          ) : isMobile ? (
+            <div className="space-y-3">
+              {movements.map((movement) => (
+                <Card 
+                  key={movement.id}
+                  className={`cursor-pointer transition-all ${selectedCardId === movement.id ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setSelectedCardId(selectedCardId === movement.id ? null : movement.id)}
+                >
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <Badge 
+                        variant={movement.movement_type === 'entry' ? 'default' : 'secondary'}
+                        className="flex items-center gap-1 w-fit"
+                      >
+                        {movement.movement_type === 'entry' ? (
+                          <ArrowDownCircle className="h-3 w-3" />
+                        ) : (
+                          <ArrowUpCircle className="h-3 w-3" />
+                        )}
+                        {movement.movement_type === 'entry' ? 'Entrada' : 'Saída'}
+                      </Badge>
+                      <span className={`font-bold ${movement.movement_type === 'entry' ? 'text-green-600' : 'text-red-600'}`}>
+                        {movement.movement_type === 'entry' ? '+' : '-'}{movement.quantity.toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatDate(movement.created_at)}
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <span>Custo: {formatCurrency(movement.unit_cost)}</span>
+                      <span>Venda: {formatCurrency(movement.unit_price)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">
+                        {getReferenceTypeLabel(movement.reference_type)}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {movement.created_by ? profiles.get(movement.created_by) || '-' : '-'}
+                      </span>
+                    </div>
+                    {selectedCardId === movement.id && movement.reference_id && (
+                      <div className="pt-2 border-t">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDocument(movement);
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Ver Documento
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : (
             <div className="rounded-md border">

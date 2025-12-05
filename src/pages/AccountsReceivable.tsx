@@ -14,6 +14,7 @@ import { Search, DollarSign, Clock, CheckCircle, AlertTriangle, Filter, X } from
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AccountReceivable {
   id: string;
@@ -40,6 +41,7 @@ interface AccountReceivable {
 
 const AccountsReceivable = () => {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedAccount, setSelectedAccount] = useState<AccountReceivable | null>(null);
@@ -351,7 +353,60 @@ const AccountsReceivable = () => {
             <p className="text-center py-8 text-muted-foreground">Carregando...</p>
           ) : filteredAccounts.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</p>
+          ) : isMobile ? (
+            // Mobile: Cards
+            <div className="space-y-3">
+              {filteredAccounts.map((account) => {
+                const remaining = account.amount - (account.paid_amount || 0);
+                return (
+                  <Card key={account.id}>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">{account.customer.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Venda: {account.sale.sale_number}
+                          </p>
+                        </div>
+                        {getStatusBadge(account)}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm mt-3">
+                        <div>
+                          <span className="text-muted-foreground">Valor:</span>{' '}
+                          <span className="font-medium">R$ {account.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Pago:</span>{' '}
+                          <span className="font-medium">R$ {(account.paid_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Saldo:</span>{' '}
+                          <span className="font-semibold">R$ {remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Venc:</span>{' '}
+                          {format(new Date(account.due_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+                        </div>
+                      </div>
+                      {account.status === 'pending' && (
+                        <div className="mt-3 pt-3 border-t">
+                          <Button
+                            size="sm"
+                            onClick={() => handleRecordPayment(account)}
+                            className="w-full"
+                          >
+                            <DollarSign className="h-4 w-4 mr-1" />
+                            Receber
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           ) : (
+            // Desktop: Table
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>

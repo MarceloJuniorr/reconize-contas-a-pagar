@@ -413,6 +413,112 @@ export type Database = {
           },
         ]
       }
+      customer_credit_history: {
+        Row: {
+          action_type: string
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          new_value: number | null
+          notes: string | null
+          old_value: number | null
+          reference_id: string | null
+          reference_type: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          id?: string
+          new_value?: number | null
+          notes?: string | null
+          old_value?: number | null
+          reference_id?: string | null
+          reference_type?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          id?: string
+          new_value?: number | null
+          notes?: string | null
+          old_value?: number | null
+          reference_id?: string | null
+          reference_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_credit_history_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_history_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_credit_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          notes: string | null
+          payment_method_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          id?: string
+          notes?: string | null
+          payment_method_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          id?: string
+          notes?: string | null
+          payment_method_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_credit_payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_delivery_addresses: {
         Row: {
           active: boolean | null
@@ -1545,6 +1651,14 @@ export type Database = {
           uploaded_by: string
           uploader_name: string
         }[]
+      }
+      get_customer_available_credit: {
+        Args: { p_customer_id: string }
+        Returns: number
+      }
+      get_customer_used_credit: {
+        Args: { p_customer_id: string }
+        Returns: number
       }
       get_user_roles: {
         Args: { _user_id: string }

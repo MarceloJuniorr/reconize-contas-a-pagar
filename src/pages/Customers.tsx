@@ -21,8 +21,9 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Search, Edit, Trash2, Users } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Users, History } from "lucide-react";
 import CustomerForm from "@/components/customers/CustomerForm";
+import CustomerCreditHistoryModal from "@/components/customers/CustomerCreditHistoryModal";
 
 interface Customer {
   id: string;
@@ -53,6 +54,7 @@ export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
 
   const canEdit = hasRole("admin") || hasRole("operador");
 
@@ -164,7 +166,7 @@ export default function Customers() {
                     <TableHead>Nome</TableHead>
                     <TableHead>Documento</TableHead>
                     <TableHead className="hidden md:table-cell">Telefone</TableHead>
-                    <TableHead className="hidden lg:table-cell">Cidade/UF</TableHead>
+                    <TableHead className="hidden lg:table-cell">Limite Crédito</TableHead>
                     <TableHead className="hidden lg:table-cell">Responsável</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -195,8 +197,8 @@ export default function Customers() {
                         {customer.phone || "-"}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        {customer.address_city && customer.address_state
-                          ? `${customer.address_city}/${customer.address_state}`
+                        {customer.credit_limit 
+                          ? `R$ ${Number(customer.credit_limit).toFixed(2)}` 
                           : "-"}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
@@ -209,6 +211,14 @@ export default function Customers() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setHistoryCustomer(customer)}
+                            title="Histórico de Crédito"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
                           {canEdit && (
                             <>
                               <Button
@@ -258,6 +268,14 @@ export default function Customers() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Credit History Modal */}
+      <CustomerCreditHistoryModal
+        open={!!historyCustomer}
+        onClose={() => setHistoryCustomer(null)}
+        customerId={historyCustomer?.id || ''}
+        customerName={historyCustomer?.name || ''}
+      />
     </div>
   );
 }

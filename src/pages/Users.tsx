@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, UserCog, Shield, Eye, CreditCard, Store } from 'lucide-react';
+import { Users, UserCog, Shield, Eye, CreditCard, Store, ShoppingCart } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -182,7 +182,7 @@ const UserManagement = () => {
         .from('user_roles')
         .insert({
           user_id: selectedUser.id,
-          role: selectedRole as 'admin' | 'pagador' | 'operador' | 'leitor'
+          role: selectedRole as 'admin' | 'pagador' | 'operador' | 'leitor' | 'caixa'
         });
 
       if (error) throw error;
@@ -220,7 +220,7 @@ const UserManagement = () => {
         .from('user_roles')
         .delete()
         .eq('user_id', userId)
-        .eq('role', role as 'admin' | 'pagador' | 'operador' | 'leitor');
+        .eq('role', role as 'admin' | 'pagador' | 'operador' | 'leitor' | 'caixa');
 
       if (error) throw error;
 
@@ -245,7 +245,8 @@ const UserManagement = () => {
       admin: 'Administrador',
       pagador: 'Pagador',
       operador: 'Operador',
-      leitor: 'Leitor'
+      leitor: 'Leitor',
+      caixa: 'Caixa'
     };
     return labels[role] || role;
   };
@@ -260,6 +261,8 @@ const UserManagement = () => {
         return <UserCog className="h-3 w-3" />;
       case 'leitor':
         return <Eye className="h-3 w-3" />;
+      case 'caixa':
+        return <ShoppingCart className="h-3 w-3" />;
       default:
         return <Users className="h-3 w-3" />;
     }
@@ -275,6 +278,8 @@ const UserManagement = () => {
         return 'bg-blue-100 text-blue-800';
       case 'leitor':
         return 'bg-gray-100 text-gray-800';
+      case 'caixa':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -316,7 +321,7 @@ const UserManagement = () => {
       </Card>
 
       {/* Resumo de Papéis */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -349,6 +354,18 @@ const UserManagement = () => {
             </div>
             <p className="text-2xl font-bold mt-2">
               {users.filter(u => u.roles.includes('operador')).length}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-purple-600" />
+              <span className="text-sm font-medium">Caixas</span>
+            </div>
+            <p className="text-2xl font-bold mt-2">
+              {users.filter(u => u.roles.includes('caixa')).length}
             </p>
           </CardContent>
         </Card>
@@ -539,6 +556,7 @@ const UserManagement = () => {
                   <SelectItem value="admin">Administrador</SelectItem>
                   <SelectItem value="pagador">Pagador</SelectItem>
                   <SelectItem value="operador">Operador</SelectItem>
+                  <SelectItem value="caixa">Caixa</SelectItem>
                   <SelectItem value="leitor">Leitor</SelectItem>
                 </SelectContent>
               </Select>
@@ -560,7 +578,7 @@ const UserManagement = () => {
                 <div className="flex gap-2">
                   <Shield className="h-4 w-4 text-red-600 mt-0.5" />
                   <div>
-                    <strong>Admin:</strong> CRUD total, gerencia usuários, fornecedores, centros de custo. Acesso completo aos relatórios.
+                    <strong>Admin:</strong> CRUD total, gerencia usuários, fornecedores, centros de custo. Pode alterar limite de crédito.
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -573,6 +591,12 @@ const UserManagement = () => {
                   <UserCog className="h-4 w-4 text-blue-600 mt-0.5" />
                   <div>
                     <strong>Operador:</strong> Lança contas, não edita no dia do vencimento, não marca como pago.
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <ShoppingCart className="h-4 w-4 text-purple-600 mt-0.5" />
+                  <div>
+                    <strong>Caixa:</strong> Opera PDV, cadastra/edita clientes (limite sempre zero), não pode alterar limite de crédito.
                   </div>
                 </div>
                 <div className="flex gap-2">

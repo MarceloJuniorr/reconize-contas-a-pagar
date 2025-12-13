@@ -1768,6 +1768,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_view_profile: {
+        Args: { _profile_id: string; _viewer_id: string }
+        Returns: boolean
+      }
       cancel_sale: {
         Args: { p_reason: string; p_sale_id: string; p_user_id: string }
         Returns: boolean

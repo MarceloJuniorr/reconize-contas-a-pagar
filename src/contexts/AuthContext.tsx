@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email);
+        // Auth state change event handled
         
         // Se é um evento de logout, não processar mais nada
         if (event === 'SIGNED_OUT') {
